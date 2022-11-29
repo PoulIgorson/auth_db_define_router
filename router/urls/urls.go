@@ -6,10 +6,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	db "auth_db_define_router/datebase"
-	admin "auth_db_define_router/router/admin"
-	auth "auth_db_define_router/router/auth"
-	functions "auth_db_define_router/router/functions"
+	db "github.com/PoulIgorson/auth_db_define_router/datebase"
+	admin "github.com/PoulIgorson/auth_db_define_router/router/admin"
+	auth "github.com/PoulIgorson/auth_db_define_router/router/auth"
+	functions "github.com/PoulIgorson/auth_db_define_router/router/functions"
 )
 
 type Url struct {

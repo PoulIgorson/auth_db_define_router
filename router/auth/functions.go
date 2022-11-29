@@ -7,9 +7,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	db "auth_db_define_router/datebase"
-	user "auth_db_define_router/datebase/buckets/user"
-	. "auth_db_define_router/define"
+	db "github.com/PoulIgorson/auth_db_define_router/datebase"
+	user "github.com/PoulIgorson/auth_db_define_router/datebase/buckets/user"
+	. "github.com/PoulIgorson/auth_db_define_router/define"
 )
 
 func dropPort(host string) string {

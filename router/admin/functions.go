@@ -4,8 +4,8 @@ package functions
 import (
 	"github.com/gofiber/fiber/v2"
 
-	db "auth_db_define_router/datebase"
-	user "auth_db_define_router/datebase/buckets/user"
+	db "github.com/PoulIgorson/auth_db_define_router/datebase"
+	user "github.com/PoulIgorson/auth_db_define_router/datebase/buckets/user"
 )
 
 // IndexPage returns handler for admin index page.

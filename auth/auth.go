@@ -4,8 +4,8 @@ package auth
 import (
 	"github.com/gofiber/fiber/v2"
 
-	db "auth_db_define_router/datebase"
-	. "auth_db_define_router/define"
+	db "github.com/PoulIgorson/auth_db_define_router/datebase"
+	. "github.com/PoulIgorson/auth_db_define_router/define"
 )
 
 var IgnoreUrls = []string{
