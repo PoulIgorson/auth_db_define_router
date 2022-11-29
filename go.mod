@@ -1,4 +1,4 @@
-module auth_db_define_router
+module github.com/PoulIgorson/auth_db_define_router
 
 go 1.19
 
