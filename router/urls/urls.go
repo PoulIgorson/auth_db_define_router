@@ -35,6 +35,26 @@ var AdminPatterns = []*Url{
 	&Url{"Get", "/admin", admin.IndexPage, "admin", "Админ"},
 }
 
+func AddUrlPatterns(up []*Url) {
+	UrlPatterns = concat(up, UrlPatterns)
+}
+
+func AddAdminPatterns(ap []*Url) {
+	AdminPatterns = concat(ap, AdminPatterns)
+}
+
+func concat(a, b []*Url) []*Url {
+	for _, url := range b {
+		for _, url2 := range a {
+			if url2.Name == url.Name {
+				continue
+			}
+		}
+		a = append(a, url)
+	}
+	return a
+}
+
 func GetUrl(name string) *Url {
 	for _, url := range UrlPatterns {
 		if url.Name == name {
