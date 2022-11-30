@@ -45,12 +45,16 @@ func AddAdminPatterns(ap []*Url) {
 
 func concat(a, b []*Url) []*Url {
 	for _, url := range b {
+		t := len(a)
 		for _, url2 := range a {
 			if url2.Name == url.Name {
 				continue
 			}
+			t--
 		}
-		a = append(a, url)
+		if t == 0 {
+			a = append(a, url)
+		}
 	}
 	return a
 }
