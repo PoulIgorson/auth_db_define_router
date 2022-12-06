@@ -69,7 +69,8 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 							if cuser.Role == user.Worker {
 								url = "/monitor"
 							}
-							return c.Status(302).JSON(fiber.Map{
+							return c.JSON(fiber.Map{
+								"Status":      "302",
 								"redirectURL": url,
 							})
 						} else {
@@ -164,7 +165,7 @@ func RegistrationPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 							Command:  data["command"],
 						}
 						cuser.Save(users)
-						return c.JSON(fiber.Map{"status": "302", "redirectURL": "/"})
+						return c.JSON(fiber.Map{"Status": "302", "redirectURL": "/"})
 					}
 				}
 			}
@@ -180,13 +181,13 @@ func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		password2 := c.Query("password2")
 
 		if len(password1) < 8 {
-			return c.JSON(fiber.Map{"status": "500", "errors": fiber.Map{"password1": "Слишком короткий пароль"}})
+			return c.JSON(fiber.Map{"Status": "500", "errors": fiber.Map{"password1": "Слишком короткий пароль"}})
 		}
 		if len(password2) < 8 {
-			return c.JSON(fiber.Map{"status": "500", "errors": fiber.Map{"password2": "Слишком короткий пароль"}})
+			return c.JSON(fiber.Map{"Status": "500", "errors": fiber.Map{"password2": "Слишком короткий пароль"}})
 		}
 		if password1 != password2 {
-			return c.JSON(fiber.Map{"status": "500", "errors": fiber.Map{"password1": "Пароли не совпадают"}})
+			return c.JSON(fiber.Map{"Status": "500", "errors": fiber.Map{"password1": "Пароли не совпадают"}})
 		}
 
 		users, _ := db_.Bucket("users")
@@ -194,6 +195,6 @@ func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		cuser := user.CheckUser(db_, cuserStr)
 		cuser.Password = Hash([]byte(password1))
 		cuser.Save(users)
-		return c.JSON(fiber.Map{"status": "200"})
+		return c.JSON(fiber.Map{"Status": "200"})
 	}
 }
