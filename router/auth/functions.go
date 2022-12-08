@@ -156,7 +156,7 @@ func RegistrationPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 						cuser := user.User{
 							Login:    data["login"],
 							Password: Hash([]byte(data["password1"])),
-							Role:     user.GetRole("guest", uint(Atoi(data["role"]))),
+							Role:     user.GetRole("", uint(Atoi(data["role"]))),
 							Command:  data["command"],
 						}
 						cuser.Save(users)
