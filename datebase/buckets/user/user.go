@@ -15,13 +15,27 @@ type Role struct {
 	Access uint   `json:"access"`
 }
 
-var Admin = &Role{"admin", 3}
-var Checker = &Role{"checker", 2}
-var Worker = &Role{"worker", 1}
+var Admin = &Role{"admin", ^uint(0)}
 var Guest = &Role{"guest", 0}
 
 var Roles = []*Role{
-	Admin, Checker, Worker, Guest,
+	Guest,
+}
+var Redirects = map[*Role]string{
+	Guest: "/",
+	Admin: "/admin",
+}
+
+func SetRoles(roles []*Role) {
+	Roles = append(Roles, roles...)
+	fmt.Println("roles:", Roles)
+}
+
+func SetRedirectsForRoles(redirects map[*Role]string) {
+	for role, url := range redirects {
+		Redirects[role] = url
+	}
+	fmt.Println("redirects:", Redirects)
 }
 
 func GetRole(name string, access ...uint) *Role {

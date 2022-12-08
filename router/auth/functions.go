@@ -48,26 +48,21 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 						if Hash([]byte(data["password"])) == cuser.Password {
 							strUser, _ := json.Marshal(cuser)
 							cookie := fiber.Cookie{
-								Name:   "userCookie",
-								Value:  string(strUser),
-								Path:   "/",
-								Domain: dropPort(c.Hostname()),
-								//Expires:     time.Now().Add(time.Hour),
+								Name:        "userCookie",
+								Value:       string(strUser),
+								Path:        "/",
+								Domain:      dropPort(c.Hostname()),
 								Secure:      false,
 								HTTPOnly:    false,
 								SessionOnly: false,
 							}
 							c.Cookie(&cookie)
-							//return c.Redirect("/")
 							url := "/"
-							if cuser.Role == user.Admin {
-								url = "/admin"
-							}
-							if cuser.Role == user.Checker {
-								url = "/monitor"
-							}
-							if cuser.Role == user.Worker {
-								url = "/monitor"
+							for role, curl := range user.Redirects {
+								if cuser.Role == role {
+									url = curl
+									break
+								}
 							}
 							return c.JSON(fiber.Map{
 								"Status":      "302",
