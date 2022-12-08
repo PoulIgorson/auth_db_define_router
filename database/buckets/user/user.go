@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	db "github.com/PoulIgorson/auth_db_define_router/datebase"
+	db "github.com/PoulIgorson/auth_db_define_router/database"
 	. "github.com/PoulIgorson/auth_db_define_router/define"
 )
 

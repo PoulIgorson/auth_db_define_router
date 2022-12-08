@@ -4,7 +4,7 @@ package router
 import (
 	"github.com/gofiber/fiber/v2"
 
-	db "github.com/PoulIgorson/auth_db_define_router/datebase"
+	db "github.com/PoulIgorson/auth_db_define_router/database"
 	urls "github.com/PoulIgorson/auth_db_define_router/router/urls"
 )
 
