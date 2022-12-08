@@ -19,7 +19,7 @@ var Admin = &Role{"admin", ^uint(0)}
 var Guest = &Role{"guest", 0}
 
 var Roles = []*Role{
-	Guest,
+	Guest, Admin,
 }
 var Redirects = map[*Role]string{
 	Guest: "/",
