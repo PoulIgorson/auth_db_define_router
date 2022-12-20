@@ -2,11 +2,19 @@
 package define
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
+	"io"
+	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -167,4 +175,144 @@ func (this *Set[T]) Get(index int) T {
 		return t
 	}
 	return this.items[index]
+}
+
+func GetEncodeFunc(format string) func(io.Writer, image.Image) error {
+	switch format {
+	case "image/png":
+		return png.Encode
+	case "png":
+		return png.Encode
+	case "image/jpeg":
+		return func(w io.Writer, i image.Image) error {
+			return jpeg.Encode(w, i, nil)
+		}
+	case "jpeg":
+		return func(w io.Writer, i image.Image) error {
+			return jpeg.Encode(w, i, nil)
+		}
+	}
+	return nil
+}
+
+func GetDecodeFunc(format string) func(io.Reader) (image.Image, error) {
+	switch format {
+	case "image/png":
+		return png.Decode
+	case "png":
+		return png.Decode
+	case "image/jpeg":
+		return jpeg.Decode
+	case "jpeg":
+		return jpeg.Decode
+	}
+	return nil
+}
+
+func GetImagesFromRequestBody(body []byte) ([]image.Image, []string) {
+	var data map[string]interface{}
+	json.Unmarshal(body, &data)
+	imagesData := data["images"].([]interface{})
+	var images []image.Image
+	var formats []string
+	for i := 0; i < len(imagesData); i++ {
+		imgData := imagesData[i].(string)
+		coI := strings.Index(imgData, ",")
+		rawImage := string(imgData)[coI+1:]
+		unbased, _ := base64.StdEncoding.DecodeString(string(rawImage))
+		res := bytes.NewReader(unbased)
+		var err error
+		format := strings.TrimSuffix(imgData[5:coI], ";base64")
+		f := GetDecodeFunc(format)
+		img, err := f(res)
+		if err == nil {
+			images = append(images, img)
+			formats = append(formats, format)
+		}
+	}
+	return images, formats
+}
+
+func ImagesToBytes(images []image.Image, formats []string) [][]byte {
+	var res [][]byte
+	for i := 0; i < len(images); i++ {
+		img := images[0]
+		buf := new(bytes.Buffer)
+		err := GetEncodeFunc(formats[i])(buf, img)
+		if err == nil {
+			res = append(res, buf.Bytes())
+		}
+	}
+	return res
+}
+
+func IndexOf[T comparable](lst []T, x T) int {
+	for i := 0; i < len(lst); i++ {
+		if lst[i] == x {
+			return i
+		}
+	}
+	return -1
+}
+
+func Check(imodel interface{}, field_name string) (*reflect.Value, error) {
+	vPointerTomodel := reflect.ValueOf(imodel)
+	if vPointerTomodel.Kind() != reflect.Ptr {
+		return nil, fmt.Errorf("Check: getting value is not pointer")
+	}
+	vModel := vPointerTomodel.Elem()
+	if vModel.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("Check: getting value is not struct")
+	}
+	withins := strings.Split(field_name, ".")
+	vfield := vModel
+	i := 0
+	for i, field_name = range withins {
+		if vfield.Kind() != reflect.Struct {
+			return nil, fmt.Errorf("Check: %v is not struct, is %v", withins[i-1], vfield.Kind())
+		}
+		cvfield := vfield.FieldByName(field_name)
+		if cvfield.Kind() == reflect.Invalid {
+			vfield = reflect.Value{}
+			break
+		}
+		vfield = cvfield
+	}
+	if vfield.Kind() == reflect.Invalid {
+		return nil, fmt.Errorf("Check: Field `%v` does not exists", field_name)
+	}
+	return &vfield, nil
+}
+
+func ChangeFieldOfName(imodel interface{}, field_name string, value interface{}) error {
+	vfield, err := Check(imodel, field_name)
+	if err != nil {
+		return err
+	}
+	if vfield.Kind() == reflect.Invalid {
+		return fmt.Errorf("ChangeFieldOfName: Field `%v` does not exists", field_name)
+	}
+	vvalue := reflect.ValueOf(value)
+	if !vvalue.CanConvert(vfield.Type()) {
+		return fmt.Errorf("ChangeFieldOfName: `%v` (type %T) not be converted to type %v", value, value, vfield.Type())
+	}
+	vvalue = vvalue.Convert(vfield.Type())
+	vfield.Set(vvalue)
+	return nil
+}
+
+func CopyMap[T1, T2 comparable](Map map[T1]T2) map[T1]T2 {
+	newMap := map[T1]T2{}
+	for k, v := range Map {
+		newMap[k] = v
+	}
+	return newMap
+}
+
+func CopyMapAny[T1, T2 comparable](Map map[T1]T2) map[string]any {
+	newMap := map[string]any{}
+	for k, v := range Map {
+		newMap[fmt.Sprint(k)] = v
+	}
+	return newMap
 }

@@ -16,6 +16,8 @@ import (
 // itoa convet int to string.
 var itoa = strconv.Itoa
 
+const DELETE = "DELETE"
+
 // DB implements interface access to bbolt db.
 type DB struct {
 	db *bolt.DB
@@ -76,12 +78,50 @@ func (this *DB) ExistsBucket(name string) bool {
 	return exists
 }
 
+// SaveBucket saving bucket in db
+func SaveBucket(bucket *Bucket, imodel interface{}) error {
+	if bucket == nil {
+		return fmt.Errorf("SaveBucket: bucket is nil")
+	}
+	field_id, err := Check(imodel, "ID")
+	if err != nil {
+		return err
+	}
+	idInt := field_id.Interface().(uint)
+	if _, err := bucket.Get(int(idInt)); err != nil || idInt == 0 {
+		k, _ := bucket.Get(0)
+		next_id := Atoi(k)
+		if next_id == 0 {
+			next_id++
+		}
+		field_id.SetUint(uint64(next_id))
+		bucket.Set(0, Itoa(next_id+1))
+	}
+	buf, err := json.Marshal(imodel)
+	if err != nil {
+		return err
+	}
+	return bucket.Set(int(idInt), string(buf))
+}
+
 // Set implements setting value of key in bucket.
 func (this *Bucket) Set(key int, value string) error {
-	return this.db.Update(func(tx *bolt.Tx) error {
+	if rvalue, _ := this.Get(key); rvalue == DELETE {
+		return fmt.Errorf("Bucket.Set: value of key `%v` is delete", key)
+	}
+	err := this.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(this.name))
 		return bucket.Put([]byte(itoa(key)), []byte(value))
 	})
+	if err != nil {
+		fmt.Printf("Bucket.Set: Error of saving bucket `%v`: %v", this.Name(), err.Error())
+	}
+	return err
+}
+
+// Delete implements Deleting value of key in bucket.
+func (this *Bucket) Delete(key int, value string) error {
+	return this.Set(key, DELETE)
 }
 
 // Get implements getting value of key in bucket.
@@ -95,6 +135,9 @@ func (this *Bucket) Get(key int) (string, error) {
 		}
 		return nil
 	})
+	if value == DELETE {
+		err = fmt.Errorf("Bucket.Set: value of key `%v` is delete", key)
+	}
 	return value, err
 }
 
@@ -106,17 +149,15 @@ func (this *Bucket) GetOfField(field string, value string) (string, error) {
 // GetOfFields returns json-string of fields in bucket.
 func (this *Bucket) GetOfFields(fields []string, values []string) (string, error) {
 	count := Min(len(fields), len(values))
-	for inc := 1; true; inc++ {
+	maxInd, _ := this.Get(0)
+	for inc := 1; inc < Atoi(maxInd); inc++ {
 		v, err := this.Get(inc)
-		if err != nil {
-			return "", err
+		if err != nil || v == DELETE {
+			continue
 		}
 
 		var data fiber.Map
-		err = json.Unmarshal([]byte(v), &data)
-		if err != nil {
-			return "ErrorJSON", err
-		}
+		json.Unmarshal([]byte(v), &data)
 
 		finded := 0
 		for i := 0; i < count; i++ {
@@ -133,20 +174,26 @@ func (this *Bucket) GetOfFields(fields []string, values []string) (string, error
 			return v, nil
 		}
 	}
-	return "", nil
+	return "", fmt.Errorf("DB: index `%v` does not exists", maxInd)
 }
 
-// GetsOfField returns json-strings of field in bucket.
+// GetsOfField returns all json-strings of field in bucket.
 func (this *Bucket) GetsOfField(field string, value string) ([]string, error) {
 	return this.GetsOfFields([]string{field}, []string{value})
 }
 
-// GetsOfFields returns json-strings of fields in bucket.
+// GetsOfFields returns all json-strings of fields in bucket.
 func (this *Bucket) GetsOfFields(fields []string, values []string) ([]string, error) {
 	count := Min(len(fields), len(values))
 	var resp []string
-	for inc := 1; true; inc++ {
-		v, err := this.Get(inc)
+	maxInd, _ := this.Get(0)
+	var v string
+	var err error
+	for inc := 1; inc < Atoi(maxInd); inc++ {
+		v, err = this.Get(inc)
+		if v == DELETE {
+			continue
+		}
 		if err != nil {
 			break
 		}
@@ -172,5 +219,5 @@ func (this *Bucket) GetsOfFields(fields []string, values []string) ([]string, er
 			resp = append(resp, v)
 		}
 	}
-	return resp, nil
+	return resp, err
 }
