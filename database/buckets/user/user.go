@@ -4,7 +4,7 @@ package user
 import (
 	"encoding/json"
 
-	db "github.com/PoulIgorson/auth_db_define_router/database"
+	db "github.com/PoulIgorson/sub_engine_fiber/database"
 )
 
 // Role implements access to module site

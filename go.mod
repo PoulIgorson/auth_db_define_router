@@ -1,4 +1,4 @@
-module github.com/PoulIgorson/auth_db_define_router
+module github.com/PoulIgorson/sub_engine_fiber
 
 go 1.19
 

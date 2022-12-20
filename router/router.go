@@ -4,8 +4,8 @@ package router
 import (
 	"github.com/gofiber/fiber/v2"
 
-	db "github.com/PoulIgorson/auth_db_define_router/database"
-	urls "github.com/PoulIgorson/auth_db_define_router/router/urls"
+	db "github.com/PoulIgorson/sub_engine_fiber/database"
+	urls "github.com/PoulIgorson/sub_engine_fiber/router/urls"
 )
 
 // Router setting handlers on url

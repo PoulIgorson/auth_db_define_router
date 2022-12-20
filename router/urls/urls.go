@@ -6,10 +6,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	db "github.com/PoulIgorson/auth_db_define_router/database"
-	admin "github.com/PoulIgorson/auth_db_define_router/router/admin"
-	auth "github.com/PoulIgorson/auth_db_define_router/router/auth"
-	functions "github.com/PoulIgorson/auth_db_define_router/router/functions"
+	db "github.com/PoulIgorson/sub_engine_fiber/database"
+	admin "github.com/PoulIgorson/sub_engine_fiber/router/admin"
+	auth "github.com/PoulIgorson/sub_engine_fiber/router/auth"
+	functions "github.com/PoulIgorson/sub_engine_fiber/router/functions"
 )
 
 type Url struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	. "github.com/PoulIgorson/auth_db_define_router/define"
+	. "github.com/PoulIgorson/sub_engine_fiber/define"
 
 	bolt "go.etcd.io/bbolt"
 )
