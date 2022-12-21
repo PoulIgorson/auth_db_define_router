@@ -95,6 +95,7 @@ func SaveBucket(bucket *Bucket, imodel interface{}) error {
 			next_id++
 		}
 		field_id.SetUint(uint64(next_id))
+		idInt = uint(next_id)
 		bucket.Set(0, Itoa(next_id+1))
 	}
 	buf, err := json.Marshal(imodel)
