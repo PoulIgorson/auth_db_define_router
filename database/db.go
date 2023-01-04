@@ -151,6 +151,10 @@ func (this *Bucket) GetOfField(field string, value string) (string, error) {
 func (this *Bucket) GetOfFields(fields []string, values []string) (string, error) {
 	count := Min(len(fields), len(values))
 	maxInd, _ := this.Get(0)
+	if maxInd == "" {
+		this.Set(0, "1")
+		maxInd = "1"
+	}
 	for inc := 1; inc < Atoi(maxInd); inc++ {
 		v, err := this.Get(inc)
 		if err != nil || v == DELETE {
@@ -188,6 +192,10 @@ func (this *Bucket) GetsOfFields(fields []string, values []string) ([]string, er
 	count := Min(len(fields), len(values))
 	var resp []string
 	maxInd, _ := this.Get(0)
+	if maxInd == "" {
+		this.Set(0, "1")
+		maxInd = "1"
+	}
 	var v string
 	var err error
 	for inc := 1; inc < Atoi(maxInd); inc++ {
