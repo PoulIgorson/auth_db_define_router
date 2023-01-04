@@ -60,7 +60,7 @@ func concat(a, b []*Url) []*Url {
 }
 
 func GetUrl(name string) *Url {
-	for _, url := range UrlPatterns {
+	for _, url := range concat(UrlPatterns, AdminPatterns) {
 		if url.Name == name {
 			return url
 		}
