@@ -24,6 +24,8 @@ import (
 // Itoa convet int to string.
 var Itoa = strconv.Itoa
 
+var ParseUint = func(x string) uint { xUint, _ := strconv.ParseUint(x, 10, 0); return uint(xUint) }
+
 // Atoi convet string to int.
 var Atoi = func(x string) int { xInt, _ := strconv.Atoi(x); return xInt }
 
