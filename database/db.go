@@ -17,6 +17,7 @@ import (
 var itoa = strconv.Itoa
 
 const DELETE = "DELETE"
+const sSAVE_BUCKET = "SAVE_BUCKET"
 
 // DB implements interface access to bbolt db.
 type DB struct {
@@ -105,8 +106,20 @@ func SaveBucket(bucket *Bucket, imodel interface{}) error {
 	return bucket.Set(int(idInt), string(buf))
 }
 
+func (this *Bucket) Count() uint {
+	count, _ := this.Get(0)
+	if count == "" || count == "0" {
+		this.Set(0, "1")
+		count = "1"
+	}
+	return ParseUint(count) - 1
+}
+
 // Set implements setting value of key in bucket.
-func (this *Bucket) Set(key int, value string) error {
+func (this *Bucket) Set(key int, value string, save_bucket ...string) error {
+	if key == 0 && (len(save_bucket) == 0 || save_bucket[0] != sSAVE_BUCKET) {
+		return fmt.Errorf("Bucket.Set: key `%v` is not available", 0)
+	}
 	if rvalue, _ := this.Get(key); rvalue == DELETE {
 		return fmt.Errorf("Bucket.Set: value of key `%v` is delete", key)
 	}
@@ -121,7 +134,7 @@ func (this *Bucket) Set(key int, value string) error {
 }
 
 // Delete implements Deleting value of key in bucket.
-func (this *Bucket) Delete(key int, value string) error {
+func (this *Bucket) Delete(key int) error {
 	return this.Set(key, DELETE)
 }
 
@@ -140,6 +153,30 @@ func (this *Bucket) Get(key int) (string, error) {
 		err = fmt.Errorf("Bucket.Set: value of key `%v` is delete", key)
 	}
 	return value, err
+}
+
+func (this *Bucket) GetAllStr() ([]string, error) {
+	var resp []string
+	var v string
+	var err error
+	for inc := 1; inc < int(this.Count()); inc++ {
+		v, err = this.Get(inc)
+		if v == DELETE {
+			continue
+		}
+		if err != nil {
+			break
+		}
+
+		var data fiber.Map
+		err = json.Unmarshal([]byte(v), &data)
+		if err != nil {
+			break
+		}
+
+		resp = append(resp, v)
+	}
+	return resp, err
 }
 
 // GetOfField returns json-string of field in bucket.
