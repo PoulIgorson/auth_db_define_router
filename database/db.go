@@ -97,7 +97,7 @@ func SaveBucket(bucket *Bucket, imodel interface{}) error {
 		}
 		field_id.SetUint(uint64(next_id))
 		idInt = uint(next_id)
-		bucket.Set(0, Itoa(next_id+1))
+		bucket.Set(0, Itoa(next_id+1), sSAVE_BUCKET)
 	}
 	buf, err := json.Marshal(imodel)
 	if err != nil {
@@ -109,7 +109,7 @@ func SaveBucket(bucket *Bucket, imodel interface{}) error {
 func (this *Bucket) Count() uint {
 	count, _ := this.Get(0)
 	if count == "" || count == "0" {
-		this.Set(0, "1")
+		this.Set(0, "1", sSAVE_BUCKET)
 		count = "1"
 	}
 	return ParseUint(count) - 1
@@ -187,12 +187,8 @@ func (this *Bucket) GetOfField(field string, value string) (string, error) {
 // GetOfFields returns json-string of fields in bucket.
 func (this *Bucket) GetOfFields(fields []string, values []string) (string, error) {
 	count := Min(len(fields), len(values))
-	maxInd, _ := this.Get(0)
-	if maxInd == "" {
-		this.Set(0, "1")
-		maxInd = "1"
-	}
-	for inc := 1; inc < Atoi(maxInd); inc++ {
+	maxInd := int(this.Count()) + 1
+	for inc := 1; inc < maxInd; inc++ {
 		v, err := this.Get(inc)
 		if err != nil || v == DELETE {
 			continue
@@ -228,14 +224,10 @@ func (this *Bucket) GetsOfField(field string, value string) ([]string, error) {
 func (this *Bucket) GetsOfFields(fields []string, values []string) ([]string, error) {
 	count := Min(len(fields), len(values))
 	var resp []string
-	maxInd, _ := this.Get(0)
-	if maxInd == "" {
-		this.Set(0, "1")
-		maxInd = "1"
-	}
+	maxInd := int(this.Count()) + 1
 	var v string
 	var err error
-	for inc := 1; inc < Atoi(maxInd); inc++ {
+	for inc := 1; inc < maxInd; inc++ {
 		v, err = this.Get(inc)
 		if v == DELETE {
 			continue
