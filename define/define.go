@@ -179,6 +179,10 @@ func (this *Set[T]) Get(index int) T {
 	return this.items[index]
 }
 
+func (this *Set[T]) Count() int {
+	return len(this.items)
+}
+
 func GetEncodeFunc(format string) func(io.Writer, image.Image) error {
 	switch format {
 	case "image/png":
@@ -223,14 +227,14 @@ func GetImagesFromRequestBody(body []byte) ([]image.Image, []string) {
 		rawImage := string(imgData)[coI+1:]
 		unbased, _ := base64.StdEncoding.DecodeString(string(rawImage))
 		res := bytes.NewReader(unbased)
-		var err error
-		format := strings.TrimSuffix(imgData[5:coI], ";base64")
-		f := GetDecodeFunc(format)
-		img, err := f(res)
-		if err == nil {
-			images = append(images, img)
-			formats = append(formats, format)
+		format := imgData[strings.Index(imgData, ":")+1 : strings.Index(imgData, ";")]
+		img, err := GetDecodeFunc(format)(res)
+		if err != nil {
+			fmt.Println("GetImagesFromRequestBody: decode:", err.Error())
+			continue
 		}
+		images = append(images, img)
+		formats = append(formats, format)
 	}
 	return images, formats
 }
