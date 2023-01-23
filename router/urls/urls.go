@@ -24,9 +24,9 @@ var UrlPatterns = []*Url{
 	&Url{"Get", "/", functions.IndexPage, "index", ""},
 
 	&Url{"All", "/login", auth.LoginPage, "auth-login", ""},
-	&Url{"Get", "/logout", auth.APILogout, "api-auth-logout", ""},
-	&Url{"Get", "/new_password", auth.APINewPassword, "api-auth-new-password", ""},
-	&Url{"All", "/registration", auth.APIRegistration, "api-auth-registration", ""},
+	&Url{"All", "/logout", auth.APILogout, "api-auth-logout", ""},
+	&Url{"POST", "/new_password", auth.APINewPassword, "api-auth-new-password", ""},
+	&Url{"POST", "/registration", auth.APIRegistration, "api-auth-registration", ""},
 
 	&Url{"Get", "/admin", admin.IndexPage, "admin", "Админ"},
 }

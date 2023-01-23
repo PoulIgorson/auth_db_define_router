@@ -27,7 +27,6 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			"pagename": "Login",
 			"menu":     urls[0],
 		}
-		errors := map[string]string{}
 		if c.Method() == "GET" {
 			userStr := c.Cookies("userCookie")
 			if user.CheckUser(db_, userStr) != nil {
@@ -36,52 +35,43 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		} else if c.Method() == "POST" {
 			var data map[string]string
 			json.Unmarshal(c.Request().Body(), &data)
-			context["login"] = data["login"]
-			context["password"] = data["password"]
 
-			users, err := db_.Bucket("users")
-			if err == nil {
-				value, err := users.GetOfField("login", data["login"])
-				if err == nil {
-					cuser := user.CheckUser(db_, value)
-					if cuser != nil {
-						if Hash([]byte(data["password"])) == cuser.Password {
-							strUser, _ := json.Marshal(cuser)
-							cookie := fiber.Cookie{
-								Name:        "userCookie",
-								Value:       string(strUser),
-								Path:        "/",
-								Domain:      dropPort(c.Hostname()),
-								Secure:      false,
-								HTTPOnly:    false,
-								SessionOnly: false,
-							}
-							c.Cookie(&cookie)
-							url := "/"
-							for role, curl := range user.Redirects {
-								if cuser.Role == role {
-									url = curl
-									break
-								}
-							}
-							return c.JSON(fiber.Map{
-								"Status":      "302",
-								"redirectURL": url,
-							})
-						} else {
-							errors["password"] = "Неверный пароль"
-						}
-					} else {
-						context["error"] = err.Error()
-					}
-				} else {
-					errors["login"] = "Логин не существует"
-				}
-			} else {
-				context["error"] = err.Error()
+			users, _ := db_.Bucket("users")
+			value, err := users.GetOfField("login", data["login"])
+			if err != nil {
+				return c.JSON(fiber.Map{"Status": "400", "login": "Логин не существует"})
 			}
+
+			cuser := user.CheckUser(db_, value)
+			if Hash([]byte(data["password"])) != cuser.Password {
+				return c.JSON(fiber.Map{"Status": "400", "password": "Неверный пароль"})
+			}
+
+			strUser, _ := json.Marshal(cuser)
+			cookie := fiber.Cookie{
+				Name:        "userCookie",
+				Value:       string(strUser),
+				Path:        "/",
+				Domain:      dropPort(c.Hostname()),
+				Secure:      false,
+				HTTPOnly:    false,
+				SessionOnly: false,
+			}
+			c.Cookie(&cookie)
+
+			url := "/"
+			for role, curl := range user.Redirects {
+				if cuser.Role == role {
+					url = curl
+					break
+				}
+			}
+
+			return c.JSON(fiber.Map{
+				"Status":      "302",
+				"redirectURL": url,
+			})
 		}
-		context["errors"] = errors
 		return c.Render("registration/login", context)
 	}
 }
@@ -98,10 +88,7 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		var data map[string]string
 		json.Unmarshal(c.Request().Body(), &data)
 
-		users, err := db_.Bucket("users")
-		if err != nil {
-			return c.JSON(fiber.Map{"Status": "500", "Error": err.Error()})
-		}
+		users, _ := db_.Bucket("users")
 
 		errors := map[string]string{}
 		if len(data["login"]) < 4 {
@@ -125,7 +112,11 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		}
 
 		if len(errors) > 0 {
-			return c.JSON(fiber.Map{"Status": "400", "Errors": errors})
+			errorsMap := fiber.Map{"Status": "400"}
+			for field, err := range errors {
+				errorsMap[field] = err
+			}
+			return c.JSON(errorsMap)
 		}
 
 		copyData := CopyMapAny(data)
@@ -146,21 +137,27 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 
 func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		password1 := c.Query("password1")
-		password2 := c.Query("password2")
+		var data map[string]string
+		json.Unmarshal(c.Request().Body(), &data)
+
+		password1 := data["password1"]
+		password2 := data["password2"]
 
 		if len(password1) < 8 {
-			return c.JSON(fiber.Map{"Status": "500", "errors": fiber.Map{"password1": "Слишком короткий пароль"}})
+			return c.JSON(fiber.Map{"Status": "500", "password1": "Слишком короткий пароль"})
 		}
 		if len(password2) < 8 {
-			return c.JSON(fiber.Map{"Status": "500", "errors": fiber.Map{"password2": "Слишком короткий пароль"}})
+			return c.JSON(fiber.Map{"Status": "500", "password2": "Слишком короткий пароль"})
 		}
 		if password1 != password2 {
-			return c.JSON(fiber.Map{"Status": "500", "errors": fiber.Map{"password1": "Пароли не совпадают"}})
+			return c.JSON(fiber.Map{"Status": "500", "password1": "Пароли не совпадают"})
 		}
 
 		users, _ := db_.Bucket("users")
-		cuserStr, _ := users.GetOfField("login", c.Query("login"))
+		cuserStr, err := users.GetOfField("login", data["login"])
+		if err != nil {
+			return c.JSON(fiber.Map{"Status": "500", "Error": err.Error()})
+		}
 		cuser := user.CheckUser(db_, cuserStr)
 		cuser.Password = Hash([]byte(password1))
 		cuser.Save(users)

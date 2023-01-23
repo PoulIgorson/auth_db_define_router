@@ -29,7 +29,7 @@ var ParseUint = func(x string) uint { xUint, _ := strconv.ParseUint(x, 10, 0); r
 // Atoi convet string to int.
 var Atoi = func(x string) int { xInt, _ := strconv.Atoi(x); return xInt }
 
-// itoa convet int to []byte.
+// Itob convet int to []byte.
 var Itob = func(v int) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(v))

@@ -4,7 +4,6 @@ package db
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -12,9 +11,6 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 )
-
-// itoa convet int to string.
-var itoa = strconv.Itoa
 
 const DELETE = "DELETE"
 const sSAVE_BUCKET = "SAVE_BUCKET"
@@ -125,7 +121,7 @@ func (this *Bucket) Set(key int, value string, save_bucket ...string) error {
 	}
 	err := this.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(this.name))
-		return bucket.Put([]byte(itoa(key)), []byte(value))
+		return bucket.Put([]byte(Itoa(key)), []byte(value))
 	})
 	if err != nil {
 		fmt.Printf("Bucket.Set: Error of saving bucket `%v`: %v", this.Name(), err.Error())
@@ -143,7 +139,7 @@ func (this *Bucket) Get(key int) (string, error) {
 	var value string
 	err := this.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(this.name))
-		value = string(bucket.Get([]byte(itoa(key))))
+		value = string(bucket.Get([]byte(Itoa(key))))
 		if value == "" {
 			return fmt.Errorf("key `%v` is not exists", key)
 		}
