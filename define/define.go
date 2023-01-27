@@ -197,6 +197,14 @@ func GetEncodeFunc(format string) func(io.Writer, image.Image) error {
 		return func(w io.Writer, i image.Image) error {
 			return jpeg.Encode(w, i, nil)
 		}
+	case "image/jpg":
+		return func(w io.Writer, i image.Image) error {
+			return jpeg.Encode(w, i, nil)
+		}
+	case "jpg":
+		return func(w io.Writer, i image.Image) error {
+			return jpeg.Encode(w, i, nil)
+		}
 	}
 	return nil
 }
@@ -210,6 +218,10 @@ func GetDecodeFunc(format string) func(io.Reader) (image.Image, error) {
 	case "image/jpeg":
 		return jpeg.Decode
 	case "jpeg":
+		return jpeg.Decode
+	case "image/jpg":
+		return jpeg.Decode
+	case "jpg":
 		return jpeg.Decode
 	}
 	return nil
@@ -242,9 +254,9 @@ func GetImagesFromRequestBody(body []byte) ([]image.Image, []string) {
 func ImagesToBytes(images []image.Image, formats []string) [][]byte {
 	var res [][]byte
 	for i := 0; i < len(images); i++ {
-		img := images[0]
+		img := images[i]
 		buf := new(bytes.Buffer)
-		err := GetEncodeFunc(formats[i])(buf, img)
+		err := GetEncodeFunc("png")(buf, img)
 		if err == nil {
 			res = append(res, buf.Bytes())
 		}
