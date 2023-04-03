@@ -273,17 +273,26 @@ func IndexOf[T comparable](lst []T, x T) int {
 	return -1
 }
 
-func Check(imodel interface{}, field_name string) (*reflect.Value, error) {
-	vPointerTomodel := reflect.ValueOf(imodel)
-	if vPointerTomodel.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("Check: getting value is not pointer")
+func GoToStruct(value reflect.Value) (*reflect.Value, error) {
+	switch value.Kind() {
+	case reflect.Pointer:
+		return GoToStruct(value.Elem())
+	case reflect.Interface:
+		return GoToStruct(value.Elem())
+	case reflect.Struct:
+		return &value, nil
+	default:
+		return nil, fmt.Errorf("GoToStruct: getting value is not struct, is %v", value.Kind())
 	}
-	vModel := vPointerTomodel.Elem()
-	if vModel.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("Check: getting value is not struct")
+}
+
+func Check(imodel interface{}, field_name string) (*reflect.Value, error) {
+	vModel, err := GoToStruct(reflect.ValueOf(imodel))
+	if err != nil {
+		return nil, err
 	}
 	withins := strings.Split(field_name, ".")
-	vfield := vModel
+	vfield := *vModel
 	i := 0
 	for i, field_name = range withins {
 		if vfield.Kind() != reflect.Struct {
@@ -297,7 +306,7 @@ func Check(imodel interface{}, field_name string) (*reflect.Value, error) {
 		vfield = cvfield
 	}
 	if vfield.Kind() == reflect.Invalid {
-		return nil, fmt.Errorf("Check: Field `%v` does not exists", field_name)
+		return nil, fmt.Errorf("Check: field `%v` does not exists", field_name)
 	}
 	return &vfield, nil
 }

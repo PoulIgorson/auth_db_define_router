@@ -55,7 +55,7 @@ type User struct {
 
 // Save implements saving model in bucket.
 func (this *User) Save(bucket *db.Bucket) error {
-	return db.SaveBucket(bucket, this)
+	return db.SaveModel(bucket, this)
 }
 
 func Create(db_ *db.DB, userStr string) *User {
@@ -66,12 +66,12 @@ func Create(db_ *db.DB, userStr string) *User {
 	var user, ruser User
 
 	json.Unmarshal([]byte(userStr), &user)
-	ruserStr, err := users.GetOfField("login", user.Login)
-	if err != nil {
+	ruserModel := users.Objects.Filter(db.Params{"login": user.Login}).First()
+	if ruserModel == nil {
 		return nil
 	}
 
-	json.Unmarshal([]byte(ruserStr), &ruser)
+	ruser = ruserModel.(User)
 	if user.Password != ruser.Password {
 		return nil
 	}
@@ -81,7 +81,7 @@ func Create(db_ *db.DB, userStr string) *User {
 }
 
 func (user User) Create(db_ *db.DB, userStr string) db.Model {
-	return Create(db_, userStr)
+	return *Create(db_, userStr)
 }
 
 func CheckUser(db_ *db.DB, userStr string) bool {

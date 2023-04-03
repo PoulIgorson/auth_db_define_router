@@ -37,12 +37,12 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			json.Unmarshal(c.Request().Body(), &data)
 
 			users, _ := db_.Bucket("users", user.User{})
-			value, err := users.GetOfField("login", data["login"])
-			if err != nil {
+			cuserModel := users.Objects.Filter(db.Params{"login": data["login"]}).First()
+			if cuserModel == nil {
 				return c.JSON(fiber.Map{"Status": "400", "login": "Логин не существует"})
 			}
 
-			cuser := user.Create(db_, value)
+			cuser := cuserModel.(user.User)
 			if Hash([]byte(data["password"])) != cuser.Password {
 				return c.JSON(fiber.Map{"Status": "400", "password": "Неверный пароль"})
 			}
@@ -103,7 +103,7 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			errors["password2"] = "Слишком короткий пароль"
 		}
 
-		if _, err := users.GetOfField("login", data["login"]); err == nil {
+		if users.Objects.Filter(nil, db.Params{"login": data["login"]}).Count() > 0 {
 			errors["login"] = "Логин существует"
 		}
 
@@ -154,11 +154,11 @@ func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		}
 
 		users, _ := db_.Bucket("users", user.User{})
-		cuserStr, err := users.GetOfField("login", data["login"])
-		if err != nil {
-			return c.JSON(fiber.Map{"Status": "500", "Error": err.Error()})
+		cuserModel := users.Objects.Filter(db.Params{"login": data["login"]}).First()
+		if cuserModel == nil {
+			return c.JSON(fiber.Map{"Status": "500", "Error": "Логин не существует"})
 		}
-		cuser := user.Create(db_, cuserStr)
+		cuser := cuserModel.(user.User)
 		cuser.Password = Hash([]byte(password1))
 		cuser.Save(users)
 		return c.JSON(fiber.Map{"Status": "200"})
