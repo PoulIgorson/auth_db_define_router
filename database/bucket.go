@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
 
 	bolt "go.etcd.io/bbolt"
@@ -17,6 +18,7 @@ type Bucket struct {
 	db   *DB
 	name string
 
+	model   Model
 	Objects Manager
 }
 
@@ -30,35 +32,18 @@ func (bucket *Bucket) Name() string {
 	return bucket.name
 }
 
-// SaveBucket saving bucket in db
-func SaveBucket(bucket *Bucket, imodel interface{}) error {
-	if bucket == nil {
-		return fmt.Errorf("SaveBucket: bucket is nil")
-	}
-	field_id, err := Check(imodel, "ID")
-	if err != nil {
-		return err
-	}
-	idInt := field_id.Interface().(uint)
-	if _, err := bucket.Get(int(idInt)); err != nil || idInt == 0 {
-		k, _ := bucket.Get(0)
-		next_id := Atoi(k)
-		if next_id == 0 {
-			next_id++
-		}
-		field_id.SetUint(uint64(next_id))
-		idInt = uint(next_id)
-		bucket.Set(0, Itoa(next_id+1), sSAVE)
-	}
-	buf, err := json.Marshal(imodel)
-	if err != nil {
-		return err
-	}
-	return bucket.Set(int(idInt), string(buf))
+// Model returns string, name of Bucket.
+func (bucket *Bucket) Model() Model {
+	return bucket.model
 }
 
 func (bucket *Bucket) Count() uint {
-	count, _ := bucket.Get(0)
+	var count string
+	bucket.db.boltDB.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(bucket.name))
+		count = string(bucket.Get([]byte("0")))
+		return nil
+	})
 	if count == "" || count == "0" {
 		bucket.Set(0, "1", sSAVE)
 		count = "1"
@@ -66,165 +51,80 @@ func (bucket *Bucket) Count() uint {
 	return ParseUint(count) - 1
 }
 
-// Set implements setting value of key in bucket.
-func (bucket *Bucket) Set(key int, value string, save_bucket ...string) error {
-	if key == 0 && (len(save_bucket) == 0 || save_bucket[0] != sSAVE) {
-		return fmt.Errorf("Bucket.Set: key `%v` is not available", 0)
-	}
-	if rvalue, _ := bucket.Get(key); rvalue == DELETE {
-		return fmt.Errorf("Bucket.Set: value of key `%v` is delete", key)
-	}
-	err := bucket.db.boltDB.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(bucket.name))
-		return bucket.Put([]byte(Itoa(key)), []byte(value))
-	})
-	if err != nil {
-		fmt.Printf("Bucket.Set: Error of saving bucket `%v`: %v", bucket.Name(), err.Error())
-	}
-	return err
-}
-
-// Delete implements Deleting value of key in bucket.
-func (bucket *Bucket) Delete(key int) error {
-	return bucket.Set(key, DELETE)
-}
-
 // Get implements getting value of key in bucket.
-func (bucket *Bucket) Get(key int) (string, error) {
+func (bucket *Bucket) Get(key uint) (Model, Error) {
 	var value string
 	err := bucket.db.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
-		value = string(bucket.Get([]byte(Itoa(key))))
+		value = string(bucket.Get([]byte(fmt.Sprint(key))))
 		if value == "" {
 			return fmt.Errorf("key `%v` is not exists", key)
 		}
 		return nil
 	})
 	if value == DELETE {
-		err = fmt.Errorf("Bucket.Set: value of key `%v` is delete", key)
+		err = NewErrValueDelete(key)
 	}
-	return value, err
+	if err != nil {
+		return nil, NewErrorf("Bucket.Set: %v", err.Error())
+	}
+	return bucket.model.Create(bucket.db, value), nil
 }
 
-func (bucket *Bucket) GetAllStr() ([]string, error) {
-	var resp []string
-	var v string
-	var err error
-	for inc := 1; inc < int(bucket.Count()); inc++ {
-		v, err = bucket.Get(inc)
-		if v == DELETE {
+// Set implements setting value of key in bucket.
+func (bucket *Bucket) Set(key uint, value string, save_bucket ...string) Error {
+	if key == 0 && (len(save_bucket) == 0 || save_bucket[0] != sSAVE) {
+		return NewErrorf("Bucket.Set: %v", NewErrValueNotAvaiable(0).Error())
+	}
+	if _, err := bucket.Get(key); err.Name() == NewErrValueDelete(0).Name() {
+		return NewErrorf("Bucket.Set: %v", err.Error())
+	}
+	err := bucket.db.boltDB.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(bucket.name))
+		return bucket.Put([]byte(fmt.Sprint(key)), []byte(value))
+	})
+	if err != nil {
+		fmt.Printf("Bucket.Set: Error of saving bucket `%v`: %v", bucket.Name(), err.Error())
+	}
+	return NewErrorf("Bucket.Set: %v", err.Error())
+}
+
+// Delete implements Deleting value of key in bucket.
+func (bucket *Bucket) Delete(key uint) Error {
+	return bucket.Set(key, DELETE)
+}
+
+// SaveModel saving bucket in db
+func SaveModel(bucket *Bucket, imodel interface{}) Error {
+	if bucket == nil {
+		return NewErrorf("SaveModel: %v", NewErrNilBucket().Error())
+	}
+	field_id, err := Check(imodel, "ID")
+	if err != nil {
+		return NewErrorf("SaveModel: %v", err.Error())
+	}
+	idInt := field_id.Interface().(uint)
+	if _, err := bucket.Get(idInt); err != nil || idInt == 0 {
+		next_id := bucket.Count()
+		field_id.SetUint(uint64(next_id))
+		idInt = uint(next_id)
+		bucket.Set(0, fmt.Sprint(next_id+1), sSAVE)
+	}
+	buf, err := json.Marshal(imodel)
+	if err != nil {
+		return NewErrorf("SaveModel: %v", err.Error())
+	}
+	return bucket.Set(idInt, string(buf))
+}
+
+func (bucket *Bucket) GetAllModels() []Model {
+	var resp []Model
+	for inc := uint(1); inc < bucket.Count(); inc++ {
+		model, err := bucket.Get(inc)
+		if err != nil {
 			continue
 		}
-		if err != nil {
-			break
-		}
-
-		var data map[string]any
-		err = json.Unmarshal([]byte(v), &data)
-		if err != nil {
-			break
-		}
-
-		resp = append(resp, v)
+		resp = append(resp, model)
 	}
-	return resp, err
-}
-
-// GetOfField returns json-string of field in bucket.
-func (bucket *Bucket) GetOfField(field string, value string) (string, error) {
-	return bucket.GetOfFields([]string{field}, []string{value})
-}
-
-// GetOfFields returns json-string of fields in bucket.
-func (bucket *Bucket) GetOfFields(fields []string, values []string) (string, error) {
-	count := Min(len(fields), len(values))
-	maxInd := int(bucket.Count()) + 1
-	for inc := 1; inc < maxInd; inc++ {
-		v, err := bucket.Get(inc)
-		if err != nil || v == DELETE {
-			continue
-		}
-
-		var data map[string]any
-		json.Unmarshal([]byte(v), &data)
-
-		finded := 0
-		for i := 0; i < count; i++ {
-			if data[fields[i]] == nil {
-				continue
-			}
-
-			find_val := fmt.Sprint(data[fields[i]])
-			if find_val == values[i] {
-				finded++
-			}
-		}
-		if finded == count {
-			return v, nil
-		}
-	}
-	return "", fmt.Errorf("DB: index `%v` does not exists", maxInd)
-}
-
-// GetsOfField returns all json-strings of field in bucket.
-func (bucket *Bucket) GetsOfField(field string, value string) ([]string, error) {
-	return bucket.GetsOfFields([]string{field}, []string{value})
-}
-
-// GetsOfFields returns all json-strings of fields in bucket.
-func (bucket *Bucket) GetsOfFields(fields []string, values []string) ([]string, error) {
-	count := Min(len(fields), len(values))
-	var resp []string
-	maxInd := int(bucket.Count()) + 1
-	var v string
-	var err error
-	for inc := 1; inc < maxInd; inc++ {
-		v, err = bucket.Get(inc)
-		if v == DELETE {
-			continue
-		}
-		if err != nil {
-			break
-		}
-
-		var data map[string]any
-		err = json.Unmarshal([]byte(v), &data)
-		if err != nil {
-			break
-		}
-
-		finded := 0
-		for i := 0; i < count; i++ {
-			if data[fields[i]] == nil {
-				continue
-			}
-
-			find_val := fmt.Sprint(data[fields[i]])
-			if find_val == values[i] {
-				finded++
-			}
-		}
-		if finded == count {
-			resp = append(resp, v)
-		}
-	}
-	return resp, err
-}
-
-func (bucket *Bucket) First() string {
-	modelsStr, err := bucket.GetAllStr()
-	if err != nil || len(modelsStr) == 0 {
-		return ""
-	}
-
-	return modelsStr[0]
-}
-
-func (bucket *Bucket) Last() string {
-	modelsStr, err := bucket.GetAllStr()
-	if err != nil || len(modelsStr) == 0 {
-		return ""
-	}
-
-	return modelsStr[len(modelsStr)-1]
+	return resp
 }

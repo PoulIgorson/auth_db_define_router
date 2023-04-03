@@ -3,6 +3,8 @@ package db
 
 import (
 	bolt "go.etcd.io/bbolt"
+
+	. "github.com/PoulIgorson/sub_engine_fiber/define"
 )
 
 // DB implements interface access to bbolt db.
@@ -32,7 +34,11 @@ func (db *DB) Close() error {
 // Bucket returns pointer to Bucket in db,
 // Returns error if name is blank, or name is too long.
 func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
-	err := db.boltDB.Update(func(tx *bolt.Tx) error {
+	_, err := Check(model, "ID")
+	if err != nil {
+		return nil, err
+	}
+	err = db.boltDB.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(name))
 		return err
 	})
@@ -40,12 +46,12 @@ func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
 		return nil, err
 	}
 	bucket := &Bucket{
-		db:   db,
-		name: name,
+		db:    db,
+		name:  name,
+		model: model,
 	}
 	bucket.Objects = Manager{
 		bucket: bucket,
-		model:  model,
 	}
 	return bucket, nil
 }

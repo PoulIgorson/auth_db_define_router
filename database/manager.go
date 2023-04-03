@@ -14,8 +14,6 @@ type Manager struct {
 	isInstance bool
 	bucket     *Bucket
 
-	model Model
-
 	objects []Model
 }
 
@@ -31,17 +29,13 @@ func (manager *Manager) Copy() *Manager {
 	return &Manager{
 		isInstance: true,
 		bucket:     manager.bucket,
-		model:      manager.model,
 		objects:    manager.objects,
 	}
 }
 
 func (manager *Manager) Get(id uint) Model {
-	modelStr, err := manager.bucket.Get(int(id))
-	if err != nil {
-		return nil
-	}
-	return manager.model.Create(manager.bucket.db, modelStr)
+	modelStr, _ := manager.bucket.Get(id)
+	return modelStr
 }
 
 func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
@@ -67,11 +61,9 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 			}
 		}
 	}
-
 	return &Manager{
 		isInstance: true,
 		bucket:     manager.bucket,
-		model:      manager.model,
 		objects:    newObjects,
 	}
 }
@@ -80,39 +72,28 @@ func (manager *Manager) All() []Model {
 	if manager.isInstance {
 		return manager.objects
 	}
-
-	modelsStr, err := manager.bucket.GetAllStr()
-	if err != nil {
-		return nil
-	}
-
-	objects := []Model{}
-	for _, modelStr := range modelsStr {
-		objects = append(objects, manager.model.Create(manager.bucket.db, modelStr))
-	}
-	return objects
+	return manager.bucket.GetAllModels()
 }
 
 func (manager *Manager) First() Model {
-	if manager.isInstance {
-		return manager.objects[0]
+	objects := manager.All()
+	if len(objects) == 0 {
+		return nil
 	}
-
-	return manager.model.Create(manager.bucket.db, manager.bucket.First())
+	return objects[0]
 }
 
 func (manager *Manager) Last() Model {
-	if manager.isInstance {
-		return manager.objects[len(manager.objects)-1]
+	objects := manager.All()
+	if len(objects) == 0 {
+		return nil
 	}
-
-	return manager.model.Create(manager.bucket.db, manager.bucket.Last())
+	return objects[len(objects)-1]
 }
 
 func (manager *Manager) Count() uint {
 	if manager.isInstance {
 		return uint(len(manager.objects))
 	}
-
 	return manager.bucket.Count()
 }
