@@ -34,7 +34,7 @@ func (db *DB) Close() error {
 // Bucket returns pointer to Bucket in db,
 // Returns error if name is blank, or name is too long.
 func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
-	_, err := Check(model, "ID")
+	_, err := Check(&model, "ID")
 	if err != nil {
 		return nil, err
 	}

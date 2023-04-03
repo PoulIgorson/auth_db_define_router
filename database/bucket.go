@@ -66,7 +66,7 @@ func (bucket *Bucket) Get(key uint) (Model, Error) {
 		err = NewErrValueDelete(key)
 	}
 	if err != nil {
-		return nil, NewErrorf("Bucket.Set: %v", err.Error())
+		return nil, NewErrorf("Bucket.Get: %v", err.Error())
 	}
 	return bucket.model.Create(bucket.db, value), nil
 }
@@ -74,9 +74,10 @@ func (bucket *Bucket) Get(key uint) (Model, Error) {
 // Set implements setting value of key in bucket.
 func (bucket *Bucket) Set(key uint, value string, save_bucket ...string) Error {
 	if key == 0 && (len(save_bucket) == 0 || save_bucket[0] != sSAVE) {
+		fmt.Println(key, save_bucket)
 		return NewErrorf("Bucket.Set: %v", NewErrValueNotAvaiable(0).Error())
 	}
-	if _, err := bucket.Get(key); err.Name() == NewErrValueDelete(0).Name() {
+	if _, err := bucket.Get(key); err != nil && err.Name() == NewErrValueDelete(0).Name() {
 		return NewErrorf("Bucket.Set: %v", err.Error())
 	}
 	err := bucket.db.boltDB.Update(func(tx *bolt.Tx) error {
@@ -86,7 +87,7 @@ func (bucket *Bucket) Set(key uint, value string, save_bucket ...string) Error {
 	if err != nil {
 		fmt.Printf("Bucket.Set: Error of saving bucket `%v`: %v", bucket.Name(), err.Error())
 	}
-	return NewErrorf("Bucket.Set: %v", err.Error())
+	return nil
 }
 
 // Delete implements Deleting value of key in bucket.
@@ -103,28 +104,16 @@ func SaveModel(bucket *Bucket, imodel interface{}) Error {
 	if err != nil {
 		return NewErrorf("SaveModel: %v", err.Error())
 	}
-	idInt := field_id.Interface().(uint)
-	if _, err := bucket.Get(idInt); err != nil || idInt == 0 {
-		next_id := bucket.Count()
+	idUint := field_id.Interface().(uint)
+	if _, err := bucket.Get(idUint); err != nil || idUint == 0 {
+		next_id := bucket.Count() + 1
 		field_id.SetUint(uint64(next_id))
-		idInt = uint(next_id)
+		idUint = uint(next_id)
 		bucket.Set(0, fmt.Sprint(next_id+1), sSAVE)
 	}
 	buf, err := json.Marshal(imodel)
 	if err != nil {
 		return NewErrorf("SaveModel: %v", err.Error())
 	}
-	return bucket.Set(idInt, string(buf))
-}
-
-func (bucket *Bucket) GetAllModels() []Model {
-	var resp []Model
-	for inc := uint(1); inc < bucket.Count(); inc++ {
-		model, err := bucket.Get(inc)
-		if err != nil {
-			continue
-		}
-		resp = append(resp, model)
-	}
-	return resp
+	return bucket.Set(idUint, string(buf))
 }

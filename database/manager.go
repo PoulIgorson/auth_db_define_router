@@ -1,7 +1,9 @@
 package db
 
 import (
-	"encoding/json"
+	"reflect"
+
+	. "github.com/PoulIgorson/sub_engine_fiber/define"
 )
 
 type Model interface {
@@ -43,28 +45,39 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 
 	newObjects := []Model(objects)
 	for i, model := range objects {
-		modelBytes, _ := json.Marshal(model)
-		modelMap := map[string]any{}
-		json.Unmarshal([]byte(modelBytes), &modelMap)
 		for key, value := range include {
-			if modelMap[key] != value {
+			mvalue, err := Check(model, key)
+			if err != nil {
+				continue
+			}
+			if mvalue.Interface() != reflect.ValueOf(value).Interface() {
 				newObjects[i] = nil
 				break
 			}
 		}
 		if len(exclude) > 0 {
 			for key, value := range exclude[0] {
-				if modelMap[key] == value {
+				mvalue, err := Check(model, key)
+				if err != nil {
+					continue
+				}
+				if mvalue.Interface() == reflect.ValueOf(value).Interface() {
 					newObjects[i] = nil
 					break
 				}
 			}
 		}
 	}
+	objects = []Model{}
+	for _, obj := range newObjects {
+		if obj != nil {
+			objects = append(objects, obj)
+		}
+	}
 	return &Manager{
 		isInstance: true,
 		bucket:     manager.bucket,
-		objects:    newObjects,
+		objects:    objects,
 	}
 }
 
@@ -72,7 +85,15 @@ func (manager *Manager) All() []Model {
 	if manager.isInstance {
 		return manager.objects
 	}
-	return manager.bucket.GetAllModels()
+	objects := []Model{}
+	for inc := uint(1); inc < manager.bucket.Count(); inc++ {
+		model, err := manager.bucket.Get(inc)
+		if err != nil {
+			continue
+		}
+		objects = append(objects, model)
+	}
+	return objects
 }
 
 func (manager *Manager) First() Model {
