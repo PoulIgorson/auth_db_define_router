@@ -86,7 +86,7 @@ func (manager *Manager) All() []Model {
 		return manager.objects
 	}
 	objects := []Model{}
-	for inc := uint(1); inc < manager.bucket.Count(); inc++ {
+	for inc := uint(1); inc < manager.bucket.Count()+1; inc++ {
 		model, err := manager.bucket.Get(inc)
 		if err != nil {
 			continue
