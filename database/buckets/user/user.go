@@ -62,7 +62,7 @@ func Create(db_ *db.DB, userStr string) *User {
 	if userStr == "" {
 		return nil
 	}
-	users, _ := db_.Bucket("users")
+	users, _ := db_.Bucket("users", User{})
 	var user, ruser User
 
 	json.Unmarshal([]byte(userStr), &user)
@@ -80,10 +80,10 @@ func Create(db_ *db.DB, userStr string) *User {
 	return &ruser
 }
 
-func CheckUser(db_ *db.DB, userStr string) *User {
+func (user User) Create(db_ *db.DB, userStr string) db.Model {
 	return Create(db_, userStr)
 }
 
-func CheckUserBool(db_ *db.DB, userStr string) bool {
+func CheckUser(db_ *db.DB, userStr string) bool {
 	return Create(db_, userStr) != nil
 }

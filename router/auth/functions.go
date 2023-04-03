@@ -29,20 +29,20 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		}
 		if c.Method() == "GET" {
 			userStr := c.Cookies("userCookie")
-			if user.CheckUser(db_, userStr) != nil {
+			if user.Create(db_, userStr) != nil {
 				return c.Redirect("/")
 			}
 		} else if c.Method() == "POST" {
 			var data map[string]string
 			json.Unmarshal(c.Request().Body(), &data)
 
-			users, _ := db_.Bucket("users")
+			users, _ := db_.Bucket("users", user.User{})
 			value, err := users.GetOfField("login", data["login"])
 			if err != nil {
 				return c.JSON(fiber.Map{"Status": "400", "login": "Логин не существует"})
 			}
 
-			cuser := user.CheckUser(db_, value)
+			cuser := user.Create(db_, value)
 			if Hash([]byte(data["password"])) != cuser.Password {
 				return c.JSON(fiber.Map{"Status": "400", "password": "Неверный пароль"})
 			}
@@ -88,7 +88,7 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		var data map[string]string
 		json.Unmarshal(c.Request().Body(), &data)
 
-		users, _ := db_.Bucket("users")
+		users, _ := db_.Bucket("users", user.User{})
 
 		errors := map[string]string{}
 		if len(data["login"]) < 4 {
@@ -153,12 +153,12 @@ func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			return c.JSON(fiber.Map{"Status": "500", "password1": "Пароли не совпадают"})
 		}
 
-		users, _ := db_.Bucket("users")
+		users, _ := db_.Bucket("users", user.User{})
 		cuserStr, err := users.GetOfField("login", data["login"])
 		if err != nil {
 			return c.JSON(fiber.Map{"Status": "500", "Error": err.Error()})
 		}
-		cuser := user.CheckUser(db_, cuserStr)
+		cuser := user.Create(db_, cuserStr)
 		cuser.Password = Hash([]byte(password1))
 		cuser.Save(users)
 		return c.JSON(fiber.Map{"Status": "200"})

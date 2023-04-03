@@ -11,7 +11,7 @@ import (
 // IndexPage returns handler for admin index page.
 func IndexPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		cuser := user.CheckUser(db_, c.Cookies("userCookie"))
+		cuser := user.Create(db_, c.Cookies("userCookie"))
 		context := fiber.Map{
 			"pagename":   "Админ",
 			"menu":       urls[0],

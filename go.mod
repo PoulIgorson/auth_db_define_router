@@ -1,6 +1,6 @@
 module github.com/PoulIgorson/sub_engine_fiber
 
-go 1.19
+go 1.20
 
 require (
 	github.com/gofiber/fiber/v2 v2.40.1

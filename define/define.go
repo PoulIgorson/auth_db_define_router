@@ -334,3 +334,16 @@ func CopyMapAny[T1, T2 comparable](Map map[T1]T2) map[string]any {
 	}
 	return newMap
 }
+
+func Pop[T comparable](lst []T, index int) ([]T, T) {
+	var x T
+	if index < 0 || index >= len(lst) {
+		return lst, x
+	}
+	x = lst[index]
+	t := lst[:index]
+	if index != len(lst)-1 {
+		lst = append(t, lst[index+1:]...)
+	}
+	return lst, x
+}

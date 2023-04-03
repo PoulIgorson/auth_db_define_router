@@ -15,7 +15,7 @@ func IndexPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			"pagename": "Главная",
 			"menu":     urls[0],
 		}
-		context["user"] = user.CheckUser(db_, c.Cookies("userCookie"))
+		context["user"] = user.Create(db_, c.Cookies("userCookie"))
 		return c.Render("index", context)
 	}
 }
