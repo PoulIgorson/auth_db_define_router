@@ -74,7 +74,7 @@ func (bucket *Bucket) Set(key int, value string, save_bucket ...string) error {
 	if rvalue, _ := bucket.Get(key); rvalue == DELETE {
 		return fmt.Errorf("Bucket.Set: value of key `%v` is delete", key)
 	}
-	err := bucket.db.db.Update(func(tx *bolt.Tx) error {
+	err := bucket.db.boltDB.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
 		return bucket.Put([]byte(Itoa(key)), []byte(value))
 	})
@@ -92,7 +92,7 @@ func (bucket *Bucket) Delete(key int) error {
 // Get implements getting value of key in bucket.
 func (bucket *Bucket) Get(key int) (string, error) {
 	var value string
-	err := bucket.db.db.View(func(tx *bolt.Tx) error {
+	err := bucket.db.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
 		value = string(bucket.Get([]byte(Itoa(key))))
 		if value == "" {

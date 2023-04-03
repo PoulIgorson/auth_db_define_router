@@ -7,11 +7,11 @@ import (
 
 // DB implements interface access to bbolt db.
 type DB struct {
-	db *bolt.DB
+	boltDB *bolt.DB
 }
 
 func (db *DB) BoltDB() *bolt.DB {
-	return db.db
+	return db.boltDB
 }
 
 // Open return pointer to DB,
@@ -25,14 +25,14 @@ func Open(path string) (*DB, error) {
 }
 
 // Close implements access to close DB.
-func (this *DB) Close() error {
-	return this.db.Close()
+func (db *DB) Close() error {
+	return db.boltDB.Close()
 }
 
 // Bucket returns pointer to Bucket in db,
 // Returns error if name is blank, or name is too long.
-func (this *DB) Bucket(name string, model Model) (*Bucket, error) {
-	err := this.db.Update(func(tx *bolt.Tx) error {
+func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
+	err := db.boltDB.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(name))
 		return err
 	})
@@ -40,7 +40,7 @@ func (this *DB) Bucket(name string, model Model) (*Bucket, error) {
 		return nil, err
 	}
 	bucket := &Bucket{
-		db:   this,
+		db:   db,
 		name: name,
 	}
 	bucket.Objects = Manager{
@@ -51,9 +51,9 @@ func (this *DB) Bucket(name string, model Model) (*Bucket, error) {
 }
 
 // ExistsBucket returns true if bucket exists.
-func (this *DB) ExistsBucket(name string) bool {
+func (db *DB) ExistsBucket(name string) bool {
 	var exists bool
-	this.db.View(func(tx *bolt.Tx) error {
+	db.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(name))
 		exists = (bucket != nil)
 		return nil
