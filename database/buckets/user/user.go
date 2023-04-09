@@ -59,25 +59,23 @@ func (this *User) Save(bucket *db.Bucket) error {
 }
 
 func Create(db_ *db.DB, userStr string) *User {
-	if userStr == "" {
-		return nil
-	}
-	users, _ := db_.Bucket("users", User{})
-	var user, ruser User
-
+	var user User
 	json.Unmarshal([]byte(userStr), &user)
-	ruserModel := users.Objects.Filter(db.Params{"login": user.Login}).First()
-	if ruserModel == nil {
+	d := map[string]any{}
+	json.Unmarshal([]byte(userStr), &d)
+	if roleI, ok := d["role"]; ok {
+		if nameI, ok := roleI.(map[string]any)["name"]; ok {
+			user.Role = GetRole(nameI.(string))
+		}
+	}
+	return &user
+}
+
+func CreateIfExists(db_ *db.DB, userStr string) *User {
+	if !CheckUser(db_, userStr) {
 		return nil
 	}
-
-	ruser = ruserModel.(User)
-	if user.Password != ruser.Password {
-		return nil
-	}
-	ruser.Role = GetRole(ruser.Role.Name)
-
-	return &ruser
+	return Create(db_, userStr)
 }
 
 func (user User) Create(db_ *db.DB, userStr string) db.Model {
@@ -85,5 +83,17 @@ func (user User) Create(db_ *db.DB, userStr string) db.Model {
 }
 
 func CheckUser(db_ *db.DB, userStr string) bool {
-	return Create(db_, userStr) != nil
+	user := Create(db_, userStr)
+	if user.ID == 0 {
+		return false
+	}
+	userBct, _ := db_.Bucket("users", &User{})
+	ruserM := userBct.Objects.Filter(db.Params{"login": user.Login}).First()
+	if ruserM == nil {
+		return false
+	}
+	if ruserM.(User).Password != user.Password {
+		return false
+	}
+	return true
 }

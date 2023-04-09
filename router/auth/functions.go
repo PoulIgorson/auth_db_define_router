@@ -29,7 +29,7 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		}
 		if c.Method() == "GET" {
 			userStr := c.Cookies("userCookie")
-			if user.Create(db_, userStr) != nil {
+			if user.CheckUser(db_, userStr) {
 				return c.Redirect("/")
 			}
 		} else if c.Method() == "POST" {
