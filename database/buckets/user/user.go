@@ -88,7 +88,7 @@ func CheckUser(db_ *db.DB, userStr string) bool {
 		return false
 	}
 	userBct, _ := db_.Bucket("users", &User{})
-	ruserM := userBct.Objects.Filter(db.Params{"login": user.Login}).First()
+	ruserM := userBct.Objects.Filter(db.Params{"Login": user.Login}).First()
 	if ruserM == nil {
 		return false
 	}
