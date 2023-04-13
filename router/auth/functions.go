@@ -103,7 +103,7 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			errors["password2"] = "Слишком короткий пароль"
 		}
 
-		if users.Objects.Filter(nil, db.Params{"Login": data["login"]}).Count() > 0 {
+		if users.Objects.Filter(db.Params{"Login": data["login"]}).Count() > 0 {
 			errors["login"] = "Логин существует"
 		}
 
