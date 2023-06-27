@@ -81,6 +81,55 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 	}
 }
 
+func (manager *Manager) FilterChan(include Params, exclude ...Params) chan Model {
+	objChan := make(chan Model, 1000)
+
+	go func(objChan chan Model) {
+		do := func(model Model) {
+			ok := true
+			for key, value := range include {
+				mvalue, err := Check(model, key)
+				if err != nil {
+					continue
+				}
+				if mvalue.Interface() != reflect.ValueOf(value).Interface() {
+					ok = false
+					break
+				}
+			}
+			if len(exclude) > 0 {
+				for key, value := range exclude[0] {
+					mvalue, err := Check(model, key)
+					if err != nil {
+						continue
+					}
+					if mvalue.Interface() == reflect.ValueOf(value).Interface() {
+						ok = false
+						break
+					}
+				}
+			}
+			if ok {
+				objChan <- model
+			}
+		}
+		if manager.isInstance {
+			for _, model := range manager.objects {
+				do(model)
+			}
+		} else {
+			for inc := uint(1); inc < manager.bucket.Count()+1; inc++ {
+				model, err := manager.bucket.Get(inc)
+				if err != nil {
+					continue
+				}
+				do(model)
+			}
+		}
+	}(objChan)
+	return objChan
+}
+
 func (manager *Manager) All() []Model {
 	if manager.isInstance {
 		return manager.objects

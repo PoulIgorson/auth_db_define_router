@@ -5,17 +5,16 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	db "github.com/PoulIgorson/sub_engine_fiber/database"
+	user "github.com/PoulIgorson/sub_engine_fiber/database/buckets/user"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
 )
 
 var IgnoreUrls = []string{
 	"/", "/login", "/logout", "/registration",
 }
-var funcCheckUser func(*db.DB, string) bool
 
 // New return handler for auth.
-func New(db_ *db.DB, funcCheckUser_ func(*db.DB, string) bool, ignoreUrls ...[]string) fiber.Handler {
-	funcCheckUser = funcCheckUser_
+func New(db_ *db.DB, ignoreUrls ...[]string) fiber.Handler {
 	if len(ignoreUrls) > 0 {
 		IgnoreUrls = ignoreUrls[0]
 	}
@@ -25,7 +24,9 @@ func New(db_ *db.DB, funcCheckUser_ func(*db.DB, string) bool, ignoreUrls ...[]s
 func myNew(db_ *db.DB) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userStr := c.Cookies("userCookie")
-		if Contains(IgnoreUrls, c.Path()) || funcCheckUser(db_, userStr) {
+		cuser := user.CreateIfExists(db_, userStr)
+		c.Context().SetUserValue("user", cuser)
+		if Contains(IgnoreUrls, c.Path()) || cuser != nil {
 			return c.Next()
 		}
 		return c.Redirect("/login")
