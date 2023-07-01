@@ -81,13 +81,13 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 	}
 }
 
-var OpenChansModel = map[uint]bool{}
+var OpenChansModel = map[uint]uint{}
 var uidChanModel uint = 0
 
 func (manager *Manager) FilterChan(include Params, exclude ...Params) (chan Model, uint) {
 	objChan := make(chan Model, 1000)
 	key := uidChanModel
-	OpenChansModel[key] = true
+	OpenChansModel[key] = 1
 	uidChanModel++
 
 	go func(objChan chan Model) {
@@ -117,7 +117,7 @@ func (manager *Manager) FilterChan(include Params, exclude ...Params) (chan Mode
 				}
 			}
 			if ok {
-				if !OpenChansModel[key] {
+				if OpenChansModel[key] == 0 {
 					return
 				}
 				objChan <- model
@@ -136,9 +136,10 @@ func (manager *Manager) FilterChan(include Params, exclude ...Params) (chan Mode
 				do(model)
 			}
 		}
-		if !ok && OpenChansModel[key] {
+		OpenChansModel[key] = 2
+		if !ok {
 			close(objChan)
-			OpenChansModel[key] = false
+			OpenChansModel[key] = 0
 		}
 	}(objChan)
 	return objChan, key

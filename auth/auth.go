@@ -16,7 +16,7 @@ var IgnoreUrls = []string{
 // New return handler for auth.
 func New(db_ *db.DB, ignoreUrls ...[]string) fiber.Handler {
 	if len(ignoreUrls) > 0 {
-		IgnoreUrls = ignoreUrls[0]
+		IgnoreUrls = append(IgnoreUrls, ignoreUrls[0]...)
 	}
 	return myNew(db_)
 }
