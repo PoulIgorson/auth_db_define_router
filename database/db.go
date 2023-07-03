@@ -51,7 +51,8 @@ func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
 		model: model,
 	}
 	bucket.Objects = Manager{
-		bucket: bucket,
+		bucket:  bucket,
+		objects: map[uint]Model{},
 	}
 	return bucket, nil
 }
