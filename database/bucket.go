@@ -103,6 +103,7 @@ func (bucket *Bucket) DeleteAll() Error {
 	if err != nil {
 		return NewErrorf("Bucket.DeleteAll: %v", err.Error())
 	}
+	bucket.Objects.objects = map[uint]Model{}
 	return nil
 }
 
@@ -129,15 +130,16 @@ func SaveModel(bucket *Bucket, model Model) Error {
 	if idUint == 0 {
 		return NewErrorf("SaveModel: internal error")
 	}
+
 	if _, ok := bucket.Objects.objects[idUint]; !ok {
 		bucket.Objects.count++
-		if bucket.Objects.maxId < idUint {
-			bucket.Objects.maxId = idUint
-		}
-		if bucket.Objects.minId > idUint || bucket.Objects.minId == 0 {
-			bucket.Objects.minId = idUint
-		}
 	}
 	bucket.Objects.objects[idUint] = model
+	if bucket.Objects.maxId < idUint {
+		bucket.Objects.maxId = idUint
+	}
+	if bucket.Objects.minId > idUint || bucket.Objects.minId == 0 {
+		bucket.Objects.minId = idUint
+	}
 	return bucket.set(idUint, string(buf))
 }

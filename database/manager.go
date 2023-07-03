@@ -136,8 +136,23 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 
 func (manager *Manager) All() []Model {
 	objects := []Model{}
-	for _, model := range manager.Filter(Params{}).objects {
+	be := false
+	for _, model := range manager.objects {
+		be = true
 		objects = append(objects, model)
+	}
+	if !be && !manager.isInstance {
+		start := manager.minId
+		if start == 0 {
+			start = 1
+		}
+		for inc := start; inc < manager.bucket.Count(); inc++ {
+			model := manager.Get(inc)
+			if model == nil {
+				continue
+			}
+			objects = append(objects, model)
+		}
 	}
 	return objects
 }
