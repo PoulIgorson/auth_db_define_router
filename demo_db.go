@@ -16,6 +16,10 @@ type Car struct {
 	City  string `json:"city"`
 }
 
+func (car Car) Id() uint {
+	return car.ID
+}
+
 func Create(db_ *db.DB, carStr string) *Car {
 	car := &Car{}
 	json.Unmarshal([]byte(carStr), car)

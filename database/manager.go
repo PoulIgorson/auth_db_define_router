@@ -8,6 +8,7 @@ import (
 
 type Model interface {
 	Create(*DB, string) Model
+	Id() uint
 }
 
 type Params map[string]any
@@ -16,7 +17,10 @@ type Manager struct {
 	isInstance bool
 	bucket     *Bucket
 
-	objects []Model
+	count   uint
+	objects map[uint]Model
+	minId   uint
+	maxId   uint
 }
 
 func (manager *Manager) IsInstance() bool {
@@ -32,159 +36,122 @@ func (manager *Manager) Copy() *Manager {
 		isInstance: true,
 		bucket:     manager.bucket,
 		objects:    manager.objects,
+		count:      manager.count,
+		minId:      manager.minId,
+		maxId:      manager.maxId,
 	}
 }
 
 func (manager *Manager) Get(id uint) Model {
-	modelStr, _ := manager.bucket.Get(id)
-	return modelStr
+	if m := manager.objects[id]; m != nil {
+		return m
+	}
+	model, _ := manager.bucket.Get(id)
+	if model != nil {
+		if _, ok := manager.objects[id]; !ok {
+			manager.count++
+			if manager.maxId < id {
+				manager.maxId = id
+			}
+			if manager.minId > id {
+				manager.minId = id
+			}
+		}
+		manager.objects[id] = model
+	}
+	return model
 }
 
-func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
-	objects := manager.All()
+func (manager *Manager) Delete(id uint) {
+	manager.bucket.Delete(id)
+}
 
-	newObjects := []Model(objects)
-	for i, model := range objects {
-		for key, value := range include {
+func (manager *Manager) CheckModel(model Model, include Params, exclude ...Params) bool {
+	if model == nil {
+		return false
+	}
+	for key, value := range include {
+		mvalue, err := Check(model, key)
+		if err != nil {
+			continue
+		}
+		if mvalue.Interface() != reflect.ValueOf(value).Interface() {
+			return false
+		}
+	}
+	if len(exclude) > 0 {
+		for key, value := range exclude[0] {
 			mvalue, err := Check(model, key)
 			if err != nil {
 				continue
 			}
-			if mvalue.Interface() != reflect.ValueOf(value).Interface() {
-				newObjects[i] = nil
-				break
-			}
-		}
-		if len(exclude) > 0 {
-			for key, value := range exclude[0] {
-				mvalue, err := Check(model, key)
-				if err != nil {
-					continue
-				}
-				if mvalue.Interface() == reflect.ValueOf(value).Interface() {
-					newObjects[i] = nil
-					break
-				}
+			if mvalue.Interface() == reflect.ValueOf(value).Interface() {
+				return false
 			}
 		}
 	}
-	objects = []Model{}
-	for _, obj := range newObjects {
-		if obj != nil {
-			objects = append(objects, obj)
+	return true
+}
+
+func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
+	newObjects := map[uint]Model{}
+	var maxId, minId uint
+	be := false
+	for id, model := range manager.objects {
+		be = true
+		if manager.CheckModel(model, include, exclude...) {
+			newObjects[id] = model
+			if id > maxId {
+				maxId = id
+			}
+			if minId > id {
+				minId = id
+			}
+		}
+	}
+	if !be && !manager.isInstance {
+		start := manager.minId
+		if start == 0 {
+			start = 1
+		}
+		for inc := start; inc < manager.bucket.Count(); inc++ {
+			model := manager.Get(inc)
+			if manager.CheckModel(model, include, exclude...) {
+				newObjects[model.Id()] = model
+				if model.Id() > maxId {
+					maxId = model.Id()
+				}
+				if minId > model.Id() {
+					minId = model.Id()
+				}
+			}
 		}
 	}
 	return &Manager{
 		isInstance: true,
 		bucket:     manager.bucket,
-		objects:    objects,
+		objects:    newObjects,
+		maxId:      maxId,
+		minId:      minId,
 	}
-}
-
-var OpenChansModel = map[uint]uint{}
-var uidChanModel uint = 0
-
-func CloseChanModel(modelChan chan Model, key uint) {
-	if OpenChansModel[key] > 0 {
-		close(modelChan)
-		OpenChansModel[key] = 0
-	}
-}
-
-func (manager *Manager) FilterChan(include Params, exclude ...Params) (chan Model, uint) {
-	objChan := make(chan Model, 1000)
-	key := uidChanModel
-	OpenChansModel[key] = 1
-	uidChanModel++
-
-	go func(objChan chan Model) {
-		ok := false
-		do := func(model Model) {
-			ok := true
-			for key, value := range include {
-				mvalue, err := Check(model, key)
-				if err != nil {
-					continue
-				}
-				if mvalue.Interface() != reflect.ValueOf(value).Interface() {
-					ok = false
-					break
-				}
-			}
-			if len(exclude) > 0 {
-				for key, value := range exclude[0] {
-					mvalue, err := Check(model, key)
-					if err != nil {
-						continue
-					}
-					if mvalue.Interface() == reflect.ValueOf(value).Interface() {
-						ok = false
-						break
-					}
-				}
-			}
-			if ok {
-				if OpenChansModel[key] == 0 {
-					return
-				}
-				objChan <- model
-			}
-		}
-		if manager.isInstance {
-			for _, model := range manager.objects {
-				do(model)
-			}
-		} else {
-			for inc := uint(1); inc < manager.bucket.Count()+1; inc++ {
-				model, err := manager.bucket.Get(inc)
-				if err != nil {
-					continue
-				}
-				do(model)
-			}
-		}
-		OpenChansModel[key] = 2
-		if !ok {
-			CloseChanModel(objChan, key)
-		}
-	}(objChan)
-	return objChan, key
 }
 
 func (manager *Manager) All() []Model {
-	if manager.isInstance {
-		return manager.objects
-	}
 	objects := []Model{}
-	for inc := uint(1); inc < manager.bucket.Count()+1; inc++ {
-		model, err := manager.bucket.Get(inc)
-		if err != nil {
-			continue
-		}
+	for _, model := range manager.Filter(Params{}).objects {
 		objects = append(objects, model)
 	}
 	return objects
 }
 
 func (manager *Manager) First() Model {
-	objects := manager.All()
-	if len(objects) == 0 {
-		return nil
-	}
-	return objects[0]
+	return manager.objects[manager.minId]
 }
 
 func (manager *Manager) Last() Model {
-	objects := manager.All()
-	if len(objects) == 0 {
-		return nil
-	}
-	return objects[len(objects)-1]
+	return manager.objects[manager.maxId]
 }
 
 func (manager *Manager) Count() uint {
-	if manager.isInstance {
-		return uint(len(manager.objects))
-	}
-	return manager.bucket.Count()
+	return uint(len(manager.All()))
 }

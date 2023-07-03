@@ -53,6 +53,10 @@ type User struct {
 	ExtraFields map[string]any `json:"extraFields"`
 }
 
+func (user User) Id() uint {
+	return user.ID
+}
+
 // Save implements saving model in bucket.
 func (this *User) Save(bucket *db.Bucket) error {
 	return db.SaveModel(bucket, this)

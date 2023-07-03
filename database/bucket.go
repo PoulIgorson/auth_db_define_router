@@ -11,7 +11,6 @@ import (
 )
 
 const DELETE = "DELETE"
-const sSAVE = "SAVE"
 
 // Bucket implements interface simple access to read/write in bbolt db.
 type Bucket struct {
@@ -45,7 +44,7 @@ func (bucket *Bucket) Count() uint {
 		return nil
 	})
 	if count == "" || count == "0" {
-		bucket.Set(0, "1", sSAVE)
+		bucket.set(0, "1")
 		count = "1"
 	}
 	return ParseUint(count) - 1
@@ -72,11 +71,7 @@ func (bucket *Bucket) Get(key uint) (Model, Error) {
 }
 
 // Set implements setting value of key in bucket.
-func (bucket *Bucket) Set(key uint, value string, save_bucket ...string) Error {
-	if key == 0 && (len(save_bucket) == 0 || save_bucket[0] != sSAVE) {
-		fmt.Println(key, save_bucket)
-		return NewErrorf("Bucket.Set: %v", NewErrValueNotAvaiable(0).Error())
-	}
+func (bucket *Bucket) set(key uint, value string, save_bucket ...string) Error {
 	if _, err := bucket.Get(key); err != nil && err.Name() == NewErrValueDelete(0).Name() {
 		return NewErrorf("Bucket.Set: %v", err.Error())
 	}
@@ -92,15 +87,31 @@ func (bucket *Bucket) Set(key uint, value string, save_bucket ...string) Error {
 
 // Delete implements Deleting value of key in bucket.
 func (bucket *Bucket) Delete(key uint) Error {
-	return bucket.Set(key, DELETE)
+	delete(bucket.Objects.objects, key)
+	return bucket.set(key, DELETE)
+}
+
+// DeleteAll implements Deleting all values in bucket.
+func (bucket *Bucket) DeleteAll() Error {
+	err := bucket.db.BoltDB().Update(func(tx *bolt.Tx) error {
+		if err := tx.DeleteBucket([]byte(bucket.name)); err != nil {
+			return err
+		}
+		_, err := tx.CreateBucketIfNotExists([]byte(bucket.name))
+		return err
+	})
+	if err != nil {
+		return NewErrorf("Bucket.DeleteAll: %v", err.Error())
+	}
+	return nil
 }
 
 // SaveModel saving bucket in db
-func SaveModel(bucket *Bucket, imodel interface{}) Error {
+func SaveModel(bucket *Bucket, model Model) Error {
 	if bucket == nil {
 		return NewErrorf("SaveModel: %v", NewErrNilBucket().Error())
 	}
-	field_id, err := Check(imodel, "ID")
+	field_id, err := Check(model, "ID")
 	if err != nil {
 		return NewErrorf("SaveModel: %v", err.Error())
 	}
@@ -109,11 +120,24 @@ func SaveModel(bucket *Bucket, imodel interface{}) Error {
 		next_id := bucket.Count() + 1
 		field_id.SetUint(uint64(next_id))
 		idUint = uint(next_id)
-		bucket.Set(0, fmt.Sprint(next_id+1), sSAVE)
+		bucket.set(0, fmt.Sprint(next_id+1))
 	}
-	buf, err := json.Marshal(imodel)
+	buf, err := json.Marshal(model)
 	if err != nil {
 		return NewErrorf("SaveModel: %v", err.Error())
 	}
-	return bucket.Set(idUint, string(buf))
+	if idUint == 0 {
+		return NewErrorf("SaveModel: internal error")
+	}
+	if _, ok := bucket.Objects.objects[idUint]; !ok {
+		bucket.Objects.count++
+		if bucket.Objects.maxId < idUint {
+			bucket.Objects.maxId = idUint
+		}
+		if bucket.Objects.minId > idUint {
+			bucket.Objects.minId = idUint
+		}
+	}
+	bucket.Objects.objects[idUint] = model
+	return bucket.set(idUint, string(buf))
 }
