@@ -27,7 +27,7 @@ func Create(db_ *db.DB, carStr string) *Car {
 }
 
 func (car Car) Create(db_ *db.DB, carStr string) db.Model {
-	return *Create(db_, carStr)
+	return Create(db_, carStr)
 }
 
 func (car *Car) Save(bct *bucket.Bucket) error {
@@ -35,20 +35,29 @@ func (car *Car) Save(bct *bucket.Bucket) error {
 }
 
 func CreateModels(db_ *db.DB) {
-	models := []string{"BMW", "Volvo", "Porch", "WW", "Tesla"}
+	models := []string{"BMW", "Volvo", "Porch", "WW", "Tesla", "Bug"}
 	colors := []string{"red", "green", "blue", "white", "black"}
 	cities := []string{"Moscow", "SP", "Vladimir", "Paris", "Rostov"}
 
 	carBct, _ := db_.Bucket("car", Car{})
-	for i := 1; i < 11; i++ {
-		car := Car{
+	for i := 0; i < 10; i++ {
+		car := &Car{
 			Model: models[rand.Int()%len(models)],
-			Color: colors[rand.Int()%len(models)],
-			City:  cities[rand.Int()%len(models)],
+			Color: colors[rand.Int()%len(colors)],
+			City:  cities[rand.Int()%len(cities)],
 		}
 		if err := car.Save(carBct); err != nil {
 			fmt.Println(i, err)
 		}
+	}
+}
+
+func show(cars []db.Model) {
+	fmt.Printf("%5v | %10v | %10v | %10v\n", "ID", "model", "color", "city")
+	fmt.Printf("----- | ---------- | ---------- | ----------\n")
+	for _, carM := range cars {
+		car := carM.(*Car)
+		fmt.Printf("%5v | %10v | %10v | %10v\n", car.ID, car.Model, car.Color, car.City)
 	}
 }
 
@@ -63,12 +72,9 @@ func Run() {
 	CreateModels(db_)
 
 	carBct, _ := db_.Bucket("car", Car{})
-	carBct.Delete(5)
-	cars := carBct.Objects.Filter(db.Params{"Model": "Tesla"}, db.Params{"Color": "black", "City": "Moscow"}).All()
-	fmt.Printf("%10v | %10v | %10v | %10v\n", "ID", "model", "color", "city")
-	fmt.Printf("---------- | ---------- | ---------- | ----------\n")
-	for _, carM := range cars {
-		car := carM.(Car)
-		fmt.Printf("%10v | %10v | %10v | %10v\n", car.ID, car.Model, car.Color, car.City)
-	}
+	carBct.Delete(carBct.Objects.Count() - 3)
+	cars := carBct.Objects.Filter(db.Params{"Model": "Bug"}, db.Params{"Color": "black", "City": "Moscow"})
+	show(cars.All())
+	fmt.Printf("%+v\n", cars)
+	fmt.Println(cars.First(), cars.Last())
 }

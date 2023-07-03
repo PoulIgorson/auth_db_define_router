@@ -134,7 +134,7 @@ func SaveModel(bucket *Bucket, model Model) Error {
 		if bucket.Objects.maxId < idUint {
 			bucket.Objects.maxId = idUint
 		}
-		if bucket.Objects.minId > idUint {
+		if bucket.Objects.minId > idUint || bucket.Objects.minId == 0 {
 			bucket.Objects.minId = idUint
 		}
 	}

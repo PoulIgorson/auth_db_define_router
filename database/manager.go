@@ -48,16 +48,14 @@ func (manager *Manager) Get(id uint) Model {
 	}
 	model, _ := manager.bucket.Get(id)
 	if model != nil {
-		if _, ok := manager.objects[id]; !ok {
-			manager.count++
-			if manager.maxId < id {
-				manager.maxId = id
-			}
-			if manager.minId > id {
-				manager.minId = id
-			}
-		}
 		manager.objects[id] = model
+		manager.count++
+		if manager.maxId < id {
+			manager.maxId = id
+		}
+		if manager.minId > id {
+			manager.minId = id
+		}
 	}
 	return model
 }
@@ -104,7 +102,7 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 			if id > maxId {
 				maxId = id
 			}
-			if minId > id {
+			if minId > id || minId == 0 {
 				minId = id
 			}
 		}
@@ -121,7 +119,7 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 				if model.Id() > maxId {
 					maxId = model.Id()
 				}
-				if minId > model.Id() {
+				if minId > model.Id() || minId == 0 {
 					minId = model.Id()
 				}
 			}
