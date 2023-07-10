@@ -83,7 +83,7 @@ func CreateIfExists(db_ *db.DB, userStr string) *User {
 }
 
 func (user User) Create(db_ *db.DB, userStr string) db.Model {
-	return *Create(db_, userStr)
+	return Create(db_, userStr)
 }
 
 func CheckUser(db_ *db.DB, userStr string) bool {
@@ -96,8 +96,13 @@ func CheckUser(db_ *db.DB, userStr string) bool {
 	if ruserM == nil {
 		return false
 	}
-	if ruserM.(User).Password != user.Password {
+	if ruserM.(*User).Password != user.Password {
 		return false
 	}
 	return true
+}
+
+func (user User) Delete(db_ *db.DB) error {
+	userBct, _ := db_.Bucket("users", User{})
+	return userBct.Delete(user.ID)
 }

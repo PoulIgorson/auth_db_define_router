@@ -42,7 +42,7 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 				return c.JSON(fiber.Map{"Status": "400", "login": "Логин не существует"})
 			}
 
-			cuser := cuserModel.(user.User)
+			cuser := cuserModel.(*user.User)
 			if Hash([]byte(data["password"])) != cuser.Password {
 				return c.JSON(fiber.Map{"Status": "400", "password": "Неверный пароль"})
 			}
@@ -158,7 +158,7 @@ func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		if cuserModel == nil {
 			return c.JSON(fiber.Map{"Status": "500", "Error": "Логин не существует"})
 		}
-		cuser := cuserModel.(user.User)
+		cuser := cuserModel.(*user.User)
 		cuser.Password = Hash([]byte(password1))
 		cuser.Save(users)
 		return c.JSON(fiber.Map{"Status": "200"})

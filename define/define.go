@@ -25,6 +25,7 @@ import (
 var Itoa = strconv.Itoa
 
 var ParseUint = func(x string) uint { xUint, _ := strconv.ParseUint(x, 10, 0); return uint(xUint) }
+var ParseFloat = func(x string) float64 { xFloat, _ := strconv.ParseFloat(x, 64); return xFloat }
 
 // Atoi convet string to int.
 var Atoi = func(x string) int { xInt, _ := strconv.Atoi(x); return xInt }
@@ -104,14 +105,14 @@ func Contains[T comparable](s []T, e T) bool {
 	return false
 }
 
-func Abs(a int) int {
+func Abs[T constraints.Integer](a T) T {
 	if a < 0 {
 		return -a
 	}
 	return a
 }
 
-func Pow[T constraints.Integer](a T, b int) float64 {
+func Pow[T constraints.Integer](a T, b T) float64 {
 	res := float64(1)
 	var aa float64
 	if b < 0 {
@@ -119,7 +120,7 @@ func Pow[T constraints.Integer](a T, b int) float64 {
 	} else {
 		aa = float64(a)
 	}
-	for i := 0; i < Abs(b); i++ {
+	for i := T(0); i < Abs(b); i++ {
 		res *= aa
 	}
 	return res
@@ -227,10 +228,13 @@ func GetDecodeFunc(format string) func(io.Reader) (image.Image, error) {
 	return nil
 }
 
-func GetImagesFromRequestBody(body []byte) ([]image.Image, []string) {
+func GetImagesFromRequestBody(body []byte, key ...string) ([]image.Image, []string) {
 	var data map[string]interface{}
 	json.Unmarshal(body, &data)
-	imagesData := data["images"].([]interface{})
+	if len(key) == 0 {
+		key = []string{"images"}
+	}
+	imagesData := data[key[0]].([]interface{})
 	var images []image.Image
 	var formats []string
 	for i := 0; i < len(imagesData); i++ {

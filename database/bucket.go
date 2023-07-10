@@ -7,6 +7,8 @@ import (
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
 
+	"github.com/PoulIgorson/sub_engine_fiber/logs"
+
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -80,7 +82,7 @@ func (bucket *Bucket) set(key uint, value string, save_bucket ...string) Error {
 		return bucket.Put([]byte(fmt.Sprint(key)), []byte(value))
 	})
 	if err != nil {
-		fmt.Printf("Bucket.Set: Error of saving bucket `%v`: %v", bucket.Name(), err.Error())
+		logs.Error("Bucket.Set: Error of saving bucket `%v`: %v", bucket.Name(), err.Error())
 	}
 	return nil
 }
