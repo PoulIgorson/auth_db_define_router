@@ -11,9 +11,17 @@ import (
 // Router setting handlers on url
 func Router(app *fiber.App, db_ *db.DB) {
 	for _, url := range urls.UrlPatterns {
+		if url.Method == "All" || url.Method == "ALL" {
+			app.All(url.Path, url.Handler(db_, urls.UrlPatterns, urls.AdminPatterns))
+			continue
+		}
 		app.Add(url.Method, url.Path, url.Handler(db_, urls.UrlPatterns, urls.AdminPatterns))
 	}
 	for _, url := range urls.AdminPatterns {
+		if url.Method == "All" || url.Method == "ALL" {
+			app.All(url.Path, url.Handler(db_, urls.UrlPatterns, urls.AdminPatterns))
+			continue
+		}
 		app.Add(url.Method, url.Path, url.Handler(db_, urls.UrlPatterns, urls.AdminPatterns))
 	}
 }
