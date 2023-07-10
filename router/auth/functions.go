@@ -81,7 +81,7 @@ func APILogout(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		cuser := c.Context().UserValue("user").(*user.User)
 		c.ClearCookie("userCookie")
-		types.NotifyInfo("Всего вам доброго, "+cuser.Login, cuser.ID)
+		types.NotifyInfo("Всего вам доброго, "+cuser.Login, 0)
 		return c.Redirect("/")
 	}
 }
