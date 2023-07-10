@@ -10,6 +10,7 @@ import (
 	db "github.com/PoulIgorson/sub_engine_fiber/database"
 	user "github.com/PoulIgorson/sub_engine_fiber/database/buckets/user"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
+	"github.com/PoulIgorson/sub_engine_fiber/types"
 )
 
 func dropPort(host string) string {
@@ -28,8 +29,8 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			"menu":     urls[0],
 		}
 		if c.Method() == "GET" {
-			userStr := c.Cookies("userCookie")
-			if user.CheckUser(db_, userStr) {
+			cuser := c.Context().UserValue("user").(*user.User)
+			if cuser != nil {
 				return c.Redirect("/")
 			}
 		} else if c.Method() == "POST" {
@@ -66,7 +67,7 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 					break
 				}
 			}
-
+			types.NotifyInfo("Доброго времени суток, "+cuser.Login, cuser.ID)
 			return c.JSON(fiber.Map{
 				"Status":      "302",
 				"redirectURL": url,
@@ -78,7 +79,9 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 
 func APILogout(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		cuser := c.Context().UserValue("user").(*user.User)
 		c.ClearCookie("userCookie")
+		types.NotifyInfo("Всего вам доброго, "+cuser.Login, cuser.ID)
 		return c.Redirect("/")
 	}
 }
@@ -131,7 +134,7 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			ExtraFields: copyData,
 		}
 		cuser.Save(users)
-		return c.JSON(fiber.Map{"Status": "302", "redirectURL": "/"})
+		return c.JSON(fiber.Map{"Status": "302", "redirectURL": "/login"})
 	}
 }
 
@@ -161,6 +164,7 @@ func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
 		cuser := cuserModel.(*user.User)
 		cuser.Password = Hash([]byte(password1))
 		cuser.Save(users)
+		types.NotifyInfo("Пароль успешно изменен", cuser.ID)
 		return c.JSON(fiber.Map{"Status": "200"})
 	}
 }
