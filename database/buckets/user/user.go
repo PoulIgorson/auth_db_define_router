@@ -68,8 +68,11 @@ func Create(db_ *db.DB, userStr string) *User {
 	d := map[string]any{}
 	json.Unmarshal([]byte(userStr), &d)
 	if roleI, ok := d["role"]; ok {
-		if nameI, ok := roleI.(map[string]any)["name"]; ok {
-			user.Role = GetRole(nameI.(string))
+		role, ok := roleI.(map[string]any)
+		if ok {
+			if nameI, ok := ["name"]; ok {
+				user.Role = GetRole(nameI.(string))
+			}
 		}
 	}
 	return &user
