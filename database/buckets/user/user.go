@@ -70,7 +70,7 @@ func Create(db_ *db.DB, userStr string) *User {
 	if roleI, ok := d["role"]; ok {
 		role, ok := roleI.(map[string]any)
 		if ok {
-			if nameI, ok := ["name"]; ok {
+			if nameI, ok := role["name"]; ok {
 				user.Role = GetRole(nameI.(string))
 			}
 		}
