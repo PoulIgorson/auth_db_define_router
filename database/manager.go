@@ -53,7 +53,7 @@ func (manager *Manager) Get(id uint) Model {
 		if manager.maxId < id {
 			manager.maxId = id
 		}
-		if manager.minId > id {
+		if manager.minId > id || manager.minId == 0 {
 			manager.minId = id
 		}
 	}

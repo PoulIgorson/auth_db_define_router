@@ -73,7 +73,7 @@ func (bucket *Bucket) Get(key uint) (Model, Error) {
 }
 
 // Set implements setting value of key in bucket.
-func (bucket *Bucket) set(key uint, value string, save_bucket ...string) Error {
+func (bucket *Bucket) set(key uint, value string) Error {
 	if _, err := bucket.Get(key); err != nil && err.Name() == NewErrValueDelete(0).Name() {
 		return NewErrorf("Bucket.Set: %v", err.Error())
 	}

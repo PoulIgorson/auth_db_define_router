@@ -9,7 +9,8 @@ import (
 
 // DB implements interface access to bbolt db.
 type DB struct {
-	boltDB *bolt.DB
+	boltDB  *bolt.DB
+	buckets map[string]*Bucket
 }
 
 func (db *DB) BoltDB() *bolt.DB {
@@ -23,17 +24,21 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{db}, nil
+	return &DB{db, map[string]*Bucket{}}, nil
 }
 
 // Close implements access to close DB.
 func (db *DB) Close() error {
+	db.buckets = nil
 	return db.boltDB.Close()
 }
 
 // Bucket returns pointer to Bucket in db,
 // Returns error if name is blank, or name is too long.
 func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
+	if db.buckets[name] != nil {
+		return db.buckets[name], nil
+	}
 	_, err := Check(&model, "ID")
 	if err != nil {
 		return nil, err
@@ -54,11 +59,15 @@ func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
 		bucket:  bucket,
 		objects: map[uint]Model{},
 	}
+	db.buckets[name] = bucket
 	return bucket, nil
 }
 
 // ExistsBucket returns true if bucket exists.
 func (db *DB) ExistsBucket(name string) bool {
+	if db.buckets[name] != nil {
+		return true
+	}
 	var exists bool
 	db.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(name))
