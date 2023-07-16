@@ -48,6 +48,7 @@ func (manager *Manager) Get(id uint) Model {
 	}
 	manager.rwObjects = true
 	if m := manager.objects[id]; m != nil {
+		manager.rwObjects = false
 		return m
 	}
 	manager.rwObjects = false
