@@ -17,10 +17,11 @@ type Manager struct {
 	isInstance bool
 	bucket     *Bucket
 
-	count   uint
-	objects map[uint]Model
-	minId   uint
-	maxId   uint
+	count     uint
+	objects   map[uint]Model
+	rwObjects bool
+	minId     uint
+	maxId     uint
 }
 
 func (manager *Manager) IsInstance() bool {
@@ -43,12 +44,20 @@ func (manager *Manager) Copy() *Manager {
 }
 
 func (manager *Manager) Get(id uint) Model {
+	for manager.rwObjects {
+	}
+	manager.rwObjects = true
 	if m := manager.objects[id]; m != nil {
 		return m
 	}
+	manager.rwObjects = false
 	model, _ := manager.bucket.Get(id)
 	if model != nil {
+		for manager.rwObjects {
+		}
+		manager.rwObjects = true
 		manager.objects[id] = model
+		manager.rwObjects = false
 		manager.count++
 		if manager.maxId < id {
 			manager.maxId = id
@@ -95,6 +104,9 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 	newObjects := map[uint]Model{}
 	var maxId, minId uint
 	be := false
+	for manager.rwObjects {
+	}
+	manager.rwObjects = true
 	for id, model := range manager.objects {
 		be = true
 		if manager.CheckModel(model, include, exclude...) {
@@ -107,6 +119,7 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 			}
 		}
 	}
+	manager.rwObjects = false
 	if !be && !manager.isInstance {
 		start := manager.minId
 		if start == 0 {
@@ -137,10 +150,14 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 func (manager *Manager) All() []Model {
 	objects := []Model{}
 	be := false
+	for manager.rwObjects {
+	}
+	manager.rwObjects = true
 	for _, model := range manager.objects {
 		be = true
 		objects = append(objects, model)
 	}
+	manager.rwObjects = false
 	if !be && !manager.isInstance {
 		start := manager.minId
 		if start == 0 {
@@ -158,11 +175,21 @@ func (manager *Manager) All() []Model {
 }
 
 func (manager *Manager) First() Model {
-	return manager.objects[manager.minId]
+	for manager.rwObjects {
+	}
+	manager.rwObjects = true
+	model := manager.objects[manager.minId]
+	manager.rwObjects = false
+	return model
 }
 
 func (manager *Manager) Last() Model {
-	return manager.objects[manager.maxId]
+	for manager.rwObjects {
+	}
+	manager.rwObjects = true
+	model := manager.objects[manager.maxId]
+	manager.rwObjects = false
+	return model
 }
 
 func (manager *Manager) Count() uint {

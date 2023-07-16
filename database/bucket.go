@@ -89,7 +89,11 @@ func (bucket *Bucket) set(key uint, value string) Error {
 
 // Delete implements Deleting value of key in bucket.
 func (bucket *Bucket) Delete(key uint) Error {
+	for bucket.Objects.rwObjects {
+	}
+	bucket.Objects.rwObjects = true
 	delete(bucket.Objects.objects, key)
+	bucket.Objects.rwObjects = false
 	return bucket.set(key, DELETE)
 }
 
@@ -105,7 +109,11 @@ func (bucket *Bucket) DeleteAll() Error {
 	if err != nil {
 		return NewErrorf("Bucket.DeleteAll: %v", err.Error())
 	}
+	for bucket.Objects.rwObjects {
+	}
+	bucket.Objects.rwObjects = true
 	bucket.Objects.objects = map[uint]Model{}
+	bucket.Objects.rwObjects = false
 	return nil
 }
 
@@ -133,10 +141,14 @@ func SaveModel(bucket *Bucket, model Model) Error {
 		return NewErrorf("SaveModel: internal error")
 	}
 
+	for bucket.Objects.rwObjects {
+	}
+	bucket.Objects.rwObjects = true
 	if _, ok := bucket.Objects.objects[idUint]; !ok {
 		bucket.Objects.count++
 	}
 	bucket.Objects.objects[idUint] = model
+	bucket.Objects.rwObjects = false
 	if bucket.Objects.maxId < idUint {
 		bucket.Objects.maxId = idUint
 	}
