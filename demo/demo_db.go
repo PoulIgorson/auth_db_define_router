@@ -36,7 +36,7 @@ func (car *Car) Save(bct *bucket.Bucket) error {
 
 func CreateModels(db_ *db.DB) {
 	models := []string{"BMW", "Volvo", "Porch", "WW", "Tesla", "Bug"}
-	colors := []string{"red", "green", "blue", "white", "black"}
+	colors := []string{"red", "green", "blue", "white", "black", "pink"}
 	cities := []string{"Moscow", "SP", "Vladimir", "Paris", "Rostov"}
 
 	carBct, _ := db_.Bucket("car", Car{})
@@ -69,12 +69,18 @@ func Run() {
 	defer db_.Close()
 	fmt.Println("App start")
 
-	CreateModels(db_)
+	// CreateModels(db_)
 
 	carBct, _ := db_.Bucket("car", Car{})
-	carBct.Delete(carBct.Objects.Count() - 3)
-	cars := carBct.Objects.Filter(db.Params{"Model": "Bug"}, db.Params{"Color": "black", "City": "Moscow"})
+	car := &Car{
+		Model: "BMW",
+		Color: "pink2",
+		City:  "Moscow",
+	}
+	car.Save(carBct)
+
+	// carBct.Delete(carBct.Objects.Count() - 3)
+	// cars := carBct.Objects.Filter(db.Params{"Model": "Bug"}, db.Params{"Color": "black", "City": "Moscow"})
+	cars := carBct.Objects.Filter(db.Params{"Color": "pink2"})
 	show(cars.All())
-	fmt.Printf("%+v\n", cars)
-	fmt.Println(cars.First(), cars.Last())
 }

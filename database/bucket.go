@@ -138,7 +138,17 @@ func SaveModel(bucket *Bucket, model Model) Error {
 		return NewErrorf("SaveModel: %v", err.Error())
 	}
 	if idUint == 0 {
-		return NewErrorf("SaveModel: internal error")
+		next_id := bucket.Count() + 1
+		field_id.SetUint(uint64(next_id))
+		idUint = uint(next_id)
+		bucket.set(0, fmt.Sprint(next_id+1))
+		if idUint == 0 {
+			return NewErrorf("SaveModel: internal error")
+		}
+		buf, err = json.Marshal(model)
+		if err != nil {
+			return NewErrorf("SaveModel: %v", err.Error())
+		}
 	}
 
 	for bucket.Objects.rwObjects {
