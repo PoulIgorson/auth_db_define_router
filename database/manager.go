@@ -151,14 +151,15 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 func (manager *Manager) All() []Model {
 	objects := []Model{}
 	be := false
-	for manager.rwObjects {
-	}
-	manager.rwObjects = true
-	for _, model := range manager.objects {
+	for id := range manager.objects {
+		for manager.rwObjects {
+		}
+		manager.rwObjects = true
+		model := manager.objects[id]
+		manager.rwObjects = false
 		be = true
 		objects = append(objects, model)
 	}
-	manager.rwObjects = false
 	if !be && !manager.isInstance {
 		start := manager.minId
 		if start == 0 {
