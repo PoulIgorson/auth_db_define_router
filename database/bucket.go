@@ -157,8 +157,16 @@ func SaveModel(bucket *Bucket, model Model) Error {
 	if _, ok := bucket.Objects.objects[idUint]; !ok {
 		bucket.Objects.count++
 	}
-	bucket.Objects.objects[idUint] = bucket.Objects.Get(idUint)
 	bucket.Objects.rwObjects = false
+
+	model = bucket.Objects.Get(idUint)
+
+	for bucket.Objects.rwObjects {
+	}
+	bucket.Objects.rwObjects = true
+	bucket.Objects.objects[idUint] = model
+	bucket.Objects.rwObjects = false
+
 	if bucket.Objects.maxId < idUint {
 		bucket.Objects.maxId = idUint
 	}
