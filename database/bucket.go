@@ -165,7 +165,7 @@ func SaveModel(bucket *Bucket, model Model) Error {
 		return errr
 	}
 
-	model = bucket.Objects.Get(idUint)
+	model, _ = bucket.Get(idUint)
 
 	for bucket.Objects.rwObjects {
 	}
