@@ -159,6 +159,12 @@ func SaveModel(bucket *Bucket, model Model) Error {
 	}
 	bucket.Objects.rwObjects = false
 
+	errr := bucket.set(idUint, string(buf))
+
+	if err != nil {
+		return errr
+	}
+
 	model = bucket.Objects.Get(idUint)
 
 	for bucket.Objects.rwObjects {
@@ -173,5 +179,5 @@ func SaveModel(bucket *Bucket, model Model) Error {
 	if bucket.Objects.minId > idUint || bucket.Objects.minId == 0 {
 		bucket.Objects.minId = idUint
 	}
-	return bucket.set(idUint, string(buf))
+	return nil
 }
