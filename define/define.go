@@ -353,6 +353,9 @@ func Pop[T comparable](lst []T, index int) ([]T, T) {
 	if index < 0 || index >= len(lst) {
 		return lst, x
 	}
+	if len(lst) == 1 {
+		return []T{}, lst[0]
+	}
 	x = lst[index]
 	t := lst[:index]
 	if index != len(lst)-1 {
