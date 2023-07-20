@@ -16,7 +16,11 @@ func IndexPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			"pagename": "Главная",
 			"menu":     urls[0],
 		}
-		cuser := c.Context().UserValue("user").(*user.User)
+		cuserI := c.Context().UserValue("user")
+		var cuser *user.User
+		if cuserI != nil {
+			cuser = cuserI.(*user.User)
+		}
 		context["user"] = cuser
 		if c.Method() == "GET" && cuser != nil {
 			context["notifies"] = types.Notifies(cuser.ID, true)

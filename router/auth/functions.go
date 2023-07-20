@@ -29,7 +29,11 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			"menu":     urls[0],
 		}
 		if c.Method() == "GET" {
-			cuser := c.Context().UserValue("user").(*user.User)
+			cuserI := c.Context().UserValue("user")
+			var cuser *user.User
+			if cuserI != nil {
+				cuser = cuserI.(*user.User)
+			}
 			if cuser != nil {
 				return c.Redirect("/")
 			}
@@ -79,8 +83,15 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 
 func APILogout(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		cuser := c.Context().UserValue("user").(*user.User)
+		cuserI := c.Context().UserValue("user")
+		var cuser *user.User
+		if cuserI != nil {
+			cuser = cuserI.(*user.User)
+		}
 		c.ClearCookie("userCookie")
+		if cuser == nil {
+			return c.Redirect("/")
+		}
 		if cuser != nil {
 			types.NotifyInfo("Всего вам доброго, "+cuser.Login, 0)
 		}

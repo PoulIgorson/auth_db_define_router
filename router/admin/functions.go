@@ -12,7 +12,14 @@ import (
 // IndexPage returns handler for admin index page.
 func IndexPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		cuser := c.Context().UserValue("user").(*user.User)
+		cuserI := c.Context().UserValue("user")
+		var cuser *user.User
+		if cuserI != nil {
+			cuser = cuserI.(*user.User)
+		}
+		if cuser == nil || cuser.Role != user.Admin {
+			return c.Redirect("/")
+		}
 		context := fiber.Map{
 			"pagename":   "Админ",
 			"menu":       urls[0],
