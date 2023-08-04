@@ -17,6 +17,7 @@ type Table interface {
 	Model() Model
 
 	Get(id any) (Model, Error)
+	Save(model Model) Error
 	Delete(id any) Error
 	DeleteAll() Error
 	Count() uint
@@ -27,6 +28,7 @@ type Model interface {
 	Create(DB, string) Model // Create(DB, jsonString) Model
 
 	Id() any
+	Save(table Table) error
 	Delete(DB) error
 }
 

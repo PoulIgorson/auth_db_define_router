@@ -95,7 +95,7 @@ func CheckUser(db_ db.DB, userStr string) bool {
 	if user.ID == 0 {
 		return false
 	}
-	userBctI, _ := db_.Table("users", User{})
+	userBctI, _ := db_.Table("users", &User{})
 	userBct := userBctI.(*bbolt.Bucket)
 	ruserM := userBct.Objects.Get(user.ID)
 	if ruserM == nil {
@@ -111,6 +111,6 @@ func CheckUser(db_ db.DB, userStr string) bool {
 }
 
 func (user User) Delete(db_ db.DB) error {
-	userBct, _ := db_.Table("users", User{})
+	userBct, _ := db_.Table("users", &User{})
 	return userBct.Delete(user.ID)
 }

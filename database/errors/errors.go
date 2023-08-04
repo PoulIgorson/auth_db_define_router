@@ -33,6 +33,13 @@ type ErrOutOfRange struct {
 
 // New functions creating error
 
+func ToError(err error) Error {
+	if err == nil {
+		return nil
+	}
+	return NewErrorf(err.Error())
+}
+
 // NewErrorf create CustomError
 func NewErrorf(format string, values ...any) Error {
 	return NewCustomError(fmt.Sprintf(format, values...))

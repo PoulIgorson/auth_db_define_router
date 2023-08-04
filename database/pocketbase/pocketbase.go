@@ -14,19 +14,40 @@ import (
 	"os"
 	"strings"
 
+	pocketbase "github.com/pocketbase/pocketbase"
+
+	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
+	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
 )
 
 // Pocketbase структура с данными авторизации для pb
 type PocketBase struct {
+	local    bool
 	address  string
 	identity string
 	password string
 }
 
 // New возвращает экземпляр *Pocketbase с адресом `address`, индификатором `identity` и паролем `password`
+//
+// address in format - http(s)://127.0.0.1(:8090)
 func New(address, identity, password string) *PocketBase {
-	return &PocketBase{address, identity, password}
+	return &PocketBase{false, address, identity, password}
+}
+
+func NewLocal(identity, password string, port ...string) *PocketBase {
+	go pocketbase.New().Start()
+	address := "http://127.0.0.1"
+	if len(port) > 0 {
+		if len(port[0]) > 0 && port[0] != ":" {
+			address += ":"
+		}
+		address += port[0]
+	} else {
+		address += ":8090"
+	}
+	return &PocketBase{true, address, identity, password}
 }
 
 // Record структура записи в pb
@@ -76,6 +97,9 @@ func (form *Form) LoadData(data map[string]any) {
 		form.data = map[string]any{}
 	}
 	for field, value := range data {
+		if len(field) > 0 && !strings.Contains("=<>~", string(field[len(field)-1])) {
+			field += "="
+		}
 		form.data[field] = value
 	}
 }
@@ -123,8 +147,8 @@ func (form *Form) Submit() error {
 	writer.Close()
 
 	var req *http.Request
-	curl := fmt.Sprintf("https://%v/api/collections/%v/records", form.app.address, form.record.collectionNameOrId)
-	if _, ok := form.data["id"]; !ok {
+	curl := fmt.Sprintf("%v/api/collections/%v/records", form.app.address, form.record.collectionNameOrId)
+	if id, ok := form.data["id"]; !ok || id == "" {
 		req, _ = http.NewRequest("POST", curl, bytes.NewReader(body.Bytes()))
 	} else {
 		req, _ = http.NewRequest("PATCH", curl+"/"+fmt.Sprint(form.data["id"]), bytes.NewReader(body.Bytes()))
@@ -151,6 +175,9 @@ func (form *Form) Submit() error {
 
 // PocketBase.getToken возвращает токен для работы с защищенным api
 func (pb *PocketBase) getToken() (string, error) {
+	if pb.identity == "" {
+		return "", nil
+	}
 	data := map[string]any{
 		"identity": pb.identity,
 		"password": pb.password,
@@ -159,7 +186,7 @@ func (pb *PocketBase) getToken() (string, error) {
 		"Content-Type": "application/json; charset=utf8",
 	}
 	status, resp, err := GetJSONResponse(
-		"POST", fmt.Sprintf("https://%v/api/collections/users/auth-with-password", pb.address),
+		"POST", fmt.Sprintf("%v/api/collections/users/auth-with-password", pb.address),
 		Headers(headers), Data(data),
 	)
 	if status != 200 {
@@ -196,7 +223,7 @@ func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, pag
 		}
 		filter += key + fmt.Sprint(value)
 	}
-	curl := fmt.Sprintf(`https://%v/api/collections/%v/records?perPage=500&filter=%v`, pb.address, collectionNameOrId, filter)
+	curl := fmt.Sprintf(`%v/api/collections/%v/records?perPage=500&filter=%v`, pb.address, collectionNameOrId, filter)
 	if len(page) > 0 {
 		curl += "&page=" + fmt.Sprint(page[0])
 	}
@@ -236,7 +263,7 @@ func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 		"Accept-Encoding": "identity",
 		"Authorization":   token,
 	}
-	curl := fmt.Sprintf(`https://%v/api/collections/%v/records/%v`, pb.address, collectionNameOrId, id)
+	curl := fmt.Sprintf(`%v/api/collections/%v/records/%v`, pb.address, collectionNameOrId, id)
 	status, respI, err := GetResponse(
 		"DELETE", curl,
 		headers, nil,
@@ -280,41 +307,43 @@ func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName 
 
 // -------------------
 
-type Model interface {
-	Create(*DB, string) Model
-	Id() string
-}
-
 // DB
-type DB struct {
+type DataBase struct {
 	pb      *PocketBase
 	buckets map[string]*Bucket
 }
 
-func Open(address, identity, password string) *DB {
-	return &DB{
+func Open(address, identity, password string) *DataBase {
+	return &DataBase{
 		pb:      New(address, identity, password),
 		buckets: map[string]*Bucket{},
 	}
 }
 
-func (db *DB) Close() error {
+func OpenWith(pb *PocketBase, buckets map[string]*Bucket) *DataBase {
+	return &DataBase{
+		pb:      pb,
+		buckets: buckets,
+	}
+}
+
+func (db *DataBase) Close() Error {
 	return nil
 }
 
-func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
+func (db *DataBase) Table(name string, model Model) (Table, Error) {
 	if db.buckets[name] != nil {
 		return db.buckets[name], nil
 	}
-	if db.ExistsBucket(name) {
-		return nil, fmt.Errorf("table not exists")
+	if !db.ExistsTable(name) {
+		return nil, NewErrorf("table not exists")
 	}
 	bucket := &Bucket{
 		db:    db,
 		name:  name,
 		model: model,
 	}
-	bucket.Objects = Manager{
+	bucket.Objects = &Manager{
 		bucket:  bucket,
 		objects: map[string]Model{},
 	}
@@ -322,21 +351,26 @@ func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
 	return bucket, nil
 }
 
-func (db *DB) ExistsBucket(name string) bool {
+func (db *DataBase) ExistsTable(name string) bool {
 	_, err := db.pb.Filter(name, map[string]any{})
+	fmt.Println(err)
 	return err == nil
 }
 
 // Bucket
 type Bucket struct {
-	db   *DB
+	db   *DataBase
 	name string
 
 	model   Model
-	Objects Manager
+	Objects *Manager
 }
 
-func (bucket *Bucket) DB() *DB {
+func (bucket *Bucket) Manager() ManagerI {
+	return bucket.Objects
+}
+
+func (bucket *Bucket) DB() DB {
 	return bucket.db
 }
 
@@ -356,40 +390,41 @@ func (bucket *Bucket) Count() uint {
 	return uint(len(records))
 }
 
-func (bucket *Bucket) Get(id any) (Model, error) {
+func (bucket *Bucket) Get(id any) (Model, Error) {
 	records, err := bucket.db.pb.Filter(bucket.name, map[string]any{"id": id})
 	if err != nil {
-		return nil, err
+		return nil, ToError(err)
 	}
 	if len(records) == 0 {
-		return nil, fmt.Errorf("record not found")
+		return nil, NewErrorf("record not found")
 	}
 	dataByte, _ := json.Marshal(records[0].data)
 	model := bucket.model.Create(bucket.db, string(dataByte))
 	for bucket.Objects.rwObjects {
 	}
 	bucket.Objects.rwObjects = true
-	bucket.Objects.objects[model.Id()] = model
+	bucket.Objects.objects[model.Id().(string)] = model
 	bucket.Objects.rwObjects = false
 	bucket.Objects.count++
 	return model, nil
 }
 
-func (bucket *Bucket) Save(model Model) error {
+func (bucket *Bucket) Save(model Model) Error {
 	dataByte, _ := json.Marshal(model)
 	data := map[string]any{}
 	json.Unmarshal(dataByte, &data)
 	form := NewForm(bucket.db.pb, NewRecord(bucket.name, bucket.db.pb))
 	form.LoadData(data)
-	err := form.Submit()
-	return err
+	return ToError(form.Submit())
 }
 
-func (bucket *Bucket) Delete(id any) error {
-	return bucket.db.pb.Delete(bucket.name, id.(string))
+func (bucket *Bucket) Delete(id any) Error {
+	return ToError(bucket.db.pb.Delete(bucket.name, id.(string)))
 }
 
-type Params map[string]any
+func (bucket *Bucket) DeleteAll() Error {
+	return NewErrorf("pocketbase does not support DeleteAll")
+}
 
 // Manager
 type Manager struct {
@@ -411,7 +446,11 @@ func (manager *Manager) Bucket() *Bucket {
 	return manager.bucket
 }
 
-func (manager *Manager) Copy() *Manager {
+func (manager *Manager) Table() Table {
+	return manager.bucket
+}
+
+func (manager *Manager) Copy() ManagerI {
 	return &Manager{
 		isInstance: true,
 		bucket:     manager.bucket,
@@ -422,7 +461,8 @@ func (manager *Manager) Copy() *Manager {
 	}
 }
 
-func (manager *Manager) Get(id string) Model {
+func (manager *Manager) Get(idI any) Model {
+	id := idI.(string)
 	for manager.rwObjects {
 	}
 	manager.rwObjects = true
@@ -449,47 +489,48 @@ func (manager *Manager) Get(id string) Model {
 	return model
 }
 
-func (manager *Manager) Delete(id uint) {
+func (manager *Manager) Delete(id any) {
 	manager.bucket.Delete(id)
 }
 
-func recordToModel(record *Record, db *DB, model Model) Model {
+func recordToModel(record *Record, db DB, model Model) Model {
 	dataByte, _ := json.Marshal(record.data)
 	return model.Create(db, string(dataByte))
 }
 
-func (manager *Manager) Filter(include Params, _ ...Params) *Manager {
+func nameFieldsToJSONTags(model Model, params Params) Params {
+	tagParams := Params{}
+	for nameField, value := range params {
+		tag := GetTagField(model, nameField)
+		if len(tag) > 5 {
+			tag = tag[6 : len(tag)-1]
+		}
+		fmt.Println(nameField, tag)
+		tagParams[tag] = value
+	}
+	return tagParams
+}
+
+func (manager *Manager) Filter(include Params, _ ...Params) ManagerI {
 	objects := map[string]Model{}
-	be := false
-	for id := range manager.objects {
+	records, _ := manager.bucket.db.pb.Filter(manager.bucket.name, nameFieldsToJSONTags(manager.bucket.model, include))
+	for _, record := range records {
+		model := recordToModel(record, manager.bucket.db, manager.bucket.model)
 		for manager.rwObjects {
 		}
 		manager.rwObjects = true
-		model := manager.objects[id]
-		manager.rwObjects = false
-		be = true
-		objects[model.Id()] = model
-	}
-	if !be && !manager.isInstance {
-		records, _ := manager.bucket.db.pb.Filter(manager.bucket.name, include)
-		for _, record := range records {
-			model := recordToModel(record, manager.bucket.db, manager.bucket.model)
-			for manager.rwObjects {
-			}
-			manager.rwObjects = true
-			if manager.objects[model.Id()] == nil {
-				manager.count++
-			}
-			manager.objects[model.Id()] = model
-			manager.rwObjects = false
-			if manager.maxId < model.Id() {
-				manager.maxId = model.Id()
-			}
-			if manager.minId > model.Id() || manager.minId == "" {
-				manager.minId = model.Id()
-			}
-			objects[model.Id()] = model
+		if manager.objects[model.Id().(string)] == nil {
+			manager.count++
 		}
+		manager.objects[model.Id().(string)] = model
+		manager.rwObjects = false
+		if manager.maxId < model.Id().(string) {
+			manager.maxId = model.Id().(string)
+		}
+		if manager.minId > model.Id().(string) || manager.minId == "" {
+			manager.minId = model.Id().(string)
+		}
+		objects[model.Id().(string)] = model
 	}
 	return &Manager{
 		isInstance: true,
@@ -519,16 +560,16 @@ func (manager *Manager) All() []Model {
 			for manager.rwObjects {
 			}
 			manager.rwObjects = true
-			if manager.objects[model.Id()] == nil {
+			if manager.objects[model.Id().(string)] == nil {
 				manager.count++
 			}
-			manager.objects[model.Id()] = model
+			manager.objects[model.Id().(string)] = model
 			manager.rwObjects = false
-			if manager.maxId < model.Id() {
-				manager.maxId = model.Id()
+			if manager.maxId < model.Id().(string) {
+				manager.maxId = model.Id().(string)
 			}
-			if manager.minId > model.Id() || manager.minId == "" {
-				manager.minId = model.Id()
+			if manager.minId > model.Id().(string) || manager.minId == "" {
+				manager.minId = model.Id().(string)
 			}
 			objects = append(objects, model)
 		}
@@ -560,30 +601,3 @@ func (manager *Manager) Count() uint {
 	}
 	return manager.count
 }
-
-// ideas
-
-/*type DB interface {
-	Close() error
-	Table(name string, model Model) (Table, error)
-	ExistsTable() bool
-}
-
-type jsonString string
-type Model interface {
-	Table() Table
-	Create(DB, jsonString) Model
-	Id() any
-	Save() error
-	Delete() error
-}
-
-type Table interface {
-	Name() any
-	DB() DB
-	Model() Model
-	Count() uint
-	Get(id any) (Model, error)
-	Delete(id any) error
-	DeleteAll() error
-}*/

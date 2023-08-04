@@ -291,6 +291,19 @@ func GoToStruct(value reflect.Value) (*reflect.Value, error) {
 	}
 }
 
+func GetTagField(model any, fieldName string) string {
+	vModel, err := GoToStruct(reflect.ValueOf(model))
+	if err != nil {
+		return ""
+	}
+	field, ok := reflect.TypeOf(vModel.Interface()).FieldByName(fieldName)
+	if !ok {
+		return ""
+	}
+	tag := string(field.Tag)
+	return tag
+}
+
 func Check(imodel interface{}, field_name string) (*reflect.Value, error) {
 	vModel, err := GoToStruct(reflect.ValueOf(imodel))
 	if err != nil {
