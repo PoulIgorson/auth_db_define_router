@@ -4,13 +4,13 @@ package functions
 import (
 	"github.com/gofiber/fiber/v2"
 
-	db "github.com/PoulIgorson/sub_engine_fiber/database"
-	user "github.com/PoulIgorson/sub_engine_fiber/database/buckets/user"
+	db "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
+	user "github.com/PoulIgorson/sub_engine_fiber/models/user"
 	"github.com/PoulIgorson/sub_engine_fiber/types"
 )
 
 // IndexPage returns handler for index page.
-func IndexPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
+func IndexPage(db_ db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		context := fiber.Map{
 			"pagename": "Главная",

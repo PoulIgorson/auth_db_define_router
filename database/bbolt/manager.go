@@ -1,17 +1,11 @@
-package db
+package bbolt
 
 import (
 	"reflect"
 
+	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
 )
-
-type Model interface {
-	Create(*DB, string) Model
-	Id() uint
-}
-
-type Params map[string]any
 
 type Manager struct {
 	isInstance bool
@@ -28,11 +22,11 @@ func (manager *Manager) IsInstance() bool {
 	return manager.isInstance
 }
 
-func (manager *Manager) Bucket() *Bucket {
+func (manager *Manager) Table() Table {
 	return manager.bucket
 }
 
-func (manager *Manager) Copy() *Manager {
+func (manager *Manager) Copy() ManagerI {
 	return &Manager{
 		isInstance: true,
 		bucket:     manager.bucket,
@@ -43,7 +37,8 @@ func (manager *Manager) Copy() *Manager {
 	}
 }
 
-func (manager *Manager) Get(id uint) Model {
+func (manager *Manager) Get(idI any) Model {
+	id := idI.(uint)
 	for manager.rwObjects {
 	}
 	manager.rwObjects = true
@@ -70,7 +65,7 @@ func (manager *Manager) Get(id uint) Model {
 	return model
 }
 
-func (manager *Manager) Delete(id uint) {
+func (manager *Manager) Delete(id any) {
 	manager.bucket.Delete(id)
 }
 
@@ -101,7 +96,7 @@ func (manager *Manager) CheckModel(model Model, include Params, exclude ...Param
 	return true
 }
 
-func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
+func (manager *Manager) Filter(include Params, exclude ...Params) ManagerI {
 	newObjects := map[uint]Model{}
 	var maxId, minId uint
 	be := false
@@ -129,12 +124,12 @@ func (manager *Manager) Filter(include Params, exclude ...Params) *Manager {
 		for inc := start; inc < manager.bucket.Count()+1; inc++ {
 			model := manager.Get(inc)
 			if manager.CheckModel(model, include, exclude...) {
-				newObjects[model.Id()] = model
-				if model.Id() > maxId {
-					maxId = model.Id()
+				newObjects[model.Id().(uint)] = model
+				if model.Id().(uint) > maxId {
+					maxId = model.Id().(uint)
 				}
-				if minId > model.Id() || minId == 0 {
-					minId = model.Id()
+				if minId > model.Id().(uint) || minId == 0 {
+					minId = model.Id().(uint)
 				}
 			}
 		}

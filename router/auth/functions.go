@@ -7,9 +7,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	db "github.com/PoulIgorson/sub_engine_fiber/database"
-	user "github.com/PoulIgorson/sub_engine_fiber/database/buckets/user"
+	db "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
+	user "github.com/PoulIgorson/sub_engine_fiber/models/user"
 	"github.com/PoulIgorson/sub_engine_fiber/types"
 )
 
@@ -22,7 +22,7 @@ func dropPort(host string) string {
 }
 
 // LoginPage returns handler for login page.
-func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
+func LoginPage(db_ db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		context := fiber.Map{
 			"pagename": "Login",
@@ -41,8 +41,8 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			var data map[string]string
 			json.Unmarshal(c.Request().Body(), &data)
 
-			users, _ := db_.Bucket("users", user.User{})
-			cuserModel := users.Objects.Filter(db.Params{"Login": data["login"]}).First()
+			users, _ := db_.Table("users", user.User{})
+			cuserModel := users.Manager().Filter(db.Params{"Login": data["login"]}).First()
 			if cuserModel == nil {
 				return c.JSON(fiber.Map{"Status": "400", "login": "Логин не существует"})
 			}
@@ -81,7 +81,7 @@ func LoginPage(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	}
 }
 
-func APILogout(db_ *db.DB, urls ...interface{}) fiber.Handler {
+func APILogout(db_ db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		cuserI := c.Context().UserValue("user")
 		var cuser *user.User
@@ -99,12 +99,12 @@ func APILogout(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	}
 }
 
-func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
+func APIRegistration(db_ db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var data map[string]string
 		json.Unmarshal(c.Request().Body(), &data)
 
-		users, _ := db_.Bucket("users", user.User{})
+		users, _ := db_.Table("users", user.User{})
 
 		errors := map[string]string{}
 		if len(data["login"]) < 4 {
@@ -119,7 +119,7 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			errors["password2"] = "Слишком короткий пароль"
 		}
 
-		if users.Objects.Filter(db.Params{"Login": data["login"]}).Count() > 0 {
+		if users.Manager().Filter(db.Params{"Login": data["login"]}).Count() > 0 {
 			errors["login"] = "Логин существует"
 		}
 
@@ -151,7 +151,7 @@ func APIRegistration(db_ *db.DB, urls ...interface{}) fiber.Handler {
 	}
 }
 
-func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
+func APINewPassword(db_ db.DB, urls ...interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var data map[string]string
 		json.Unmarshal(c.Request().Body(), &data)
@@ -169,8 +169,8 @@ func APINewPassword(db_ *db.DB, urls ...interface{}) fiber.Handler {
 			return c.JSON(fiber.Map{"Status": "500", "password1": "Пароли не совпадают"})
 		}
 
-		users, _ := db_.Bucket("users", user.User{})
-		cuserModel := users.Objects.Filter(db.Params{"Login": data["login"]}).First()
+		users, _ := db_.Table("users", user.User{})
+		cuserModel := users.Manager().Filter(db.Params{"Login": data["login"]}).First()
 		if cuserModel == nil {
 			return c.JSON(fiber.Map{"Status": "500", "Error": "Логин не существует"})
 		}

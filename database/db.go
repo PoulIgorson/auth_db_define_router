@@ -1,78 +1,12 @@
-// Package db implements simple method of treatment to bbolt db.
 package db
 
 import (
-	bolt "go.etcd.io/bbolt"
+	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 
-	. "github.com/PoulIgorson/sub_engine_fiber/define"
+	bbolt "github.com/PoulIgorson/sub_engine_fiber/database/bbolt"
 )
 
-// DB implements interface access to bbolt db.
-type DB struct {
-	boltDB  *bolt.DB
-	buckets map[string]*Bucket
-}
-
-func (db *DB) BoltDB() *bolt.DB {
-	return db.boltDB
-}
-
-// Open return pointer to DB,
-// If DB does not exist then error.
-func Open(path string) (*DB, error) {
-	db, err := bolt.Open(path, 0666, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &DB{db, map[string]*Bucket{}}, nil
-}
-
-// Close implements access to close DB.
-func (db *DB) Close() error {
-	db.buckets = nil
-	return db.boltDB.Close()
-}
-
-// Bucket returns pointer to Bucket in db,
-// Returns error if name is blank, or name is too long.
-func (db *DB) Bucket(name string, model Model) (*Bucket, error) {
-	if db.buckets[name] != nil {
-		return db.buckets[name], nil
-	}
-	_, err := Check(&model, "ID")
-	if err != nil {
-		return nil, err
-	}
-	err = db.boltDB.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(name))
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	bucket := &Bucket{
-		db:    db,
-		name:  name,
-		model: model,
-	}
-	bucket.Objects = Manager{
-		bucket:  bucket,
-		objects: map[uint]Model{},
-	}
-	db.buckets[name] = bucket
-	return bucket, nil
-}
-
-// ExistsBucket returns true if bucket exists.
-func (db *DB) ExistsBucket(name string) bool {
-	if db.buckets[name] != nil {
-		return true
-	}
-	var exists bool
-	db.boltDB.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(name))
-		exists = (bucket != nil)
-		return nil
-	})
-	return exists
+func OpenBbolt(path string) (DB, error) {
+	db, err := bbolt.Open(path)
+	return db, err
 }

@@ -1,10 +1,11 @@
-package db
+package bbolt
 
 import (
 	"encoding/json"
 	"fmt"
 
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
+	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
 
 	"github.com/PoulIgorson/sub_engine_fiber/logs"
@@ -16,15 +17,19 @@ const DELETE = "DELETE"
 
 // Bucket implements interface simple access to read/write in bbolt db.
 type Bucket struct {
-	db   *DB
+	db   *DataBase
 	name string
 
 	model   Model
-	Objects Manager
+	Objects *Manager
+}
+
+func (bucket *Bucket) Manager() ManagerI {
+	return bucket.Objects
 }
 
 // DB returns pointer to DB.
-func (bucket *Bucket) DB() *DB {
+func (bucket *Bucket) DB() DB {
 	return bucket.db
 }
 
@@ -46,14 +51,15 @@ func (bucket *Bucket) Count() uint {
 		return nil
 	})
 	if count == "" || count == "0" {
-		bucket.set(0, "1")
+		bucket.set(uint(0), "1")
 		count = "1"
 	}
 	return ParseUint(count) - 1
 }
 
 // Get implements getting value of key in bucket.
-func (bucket *Bucket) Get(key uint) (Model, Error) {
+func (bucket *Bucket) Get(keyI any) (Model, Error) {
+	key := keyI.(uint)
 	var value string
 	err := bucket.db.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
@@ -73,7 +79,8 @@ func (bucket *Bucket) Get(key uint) (Model, Error) {
 }
 
 // Set implements setting value of key in bucket.
-func (bucket *Bucket) set(key uint, value string) Error {
+func (bucket *Bucket) set(keyI any, value string) Error {
+	key := keyI.(uint)
 	if _, err := bucket.Get(key); err != nil && err.Name() == NewErrValueDelete(0).Name() {
 		return NewErrorf("Bucket.Set: %v", err.Error())
 	}
@@ -88,7 +95,8 @@ func (bucket *Bucket) set(key uint, value string) Error {
 }
 
 // Delete implements Deleting value of key in bucket.
-func (bucket *Bucket) Delete(key uint) Error {
+func (bucket *Bucket) Delete(keyI any) Error {
+	key := keyI.(uint)
 	for bucket.Objects.rwObjects {
 	}
 	bucket.Objects.rwObjects = true
@@ -117,6 +125,10 @@ func (bucket *Bucket) DeleteAll() Error {
 	return nil
 }
 
+func (bucket *Bucket) Save(model Model) Error {
+	return SaveModel(bucket, model)
+}
+
 // SaveModel saving bucket in db
 func SaveModel(bucket *Bucket, model Model) Error {
 	if bucket == nil {
@@ -131,7 +143,7 @@ func SaveModel(bucket *Bucket, model Model) Error {
 		next_id := bucket.Count() + 1
 		field_id.SetUint(uint64(next_id))
 		idUint = uint(next_id)
-		bucket.set(0, fmt.Sprint(next_id+1))
+		bucket.set(uint(0), fmt.Sprint(next_id+1))
 	}
 	buf, err := json.Marshal(model)
 	if err != nil {
@@ -141,7 +153,7 @@ func SaveModel(bucket *Bucket, model Model) Error {
 		next_id := bucket.Count() + 1
 		field_id.SetUint(uint64(next_id))
 		idUint = uint(next_id)
-		bucket.set(0, fmt.Sprint(next_id+1))
+		bucket.set(uint(0), fmt.Sprint(next_id+1))
 		if idUint == 0 {
 			return NewErrorf("SaveModel: internal error")
 		}

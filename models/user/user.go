@@ -4,7 +4,8 @@ package user
 import (
 	"encoding/json"
 
-	db "github.com/PoulIgorson/sub_engine_fiber/database"
+	bbolt "github.com/PoulIgorson/sub_engine_fiber/database/bbolt"
+	db "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 )
 
 // Role implements access to module site
@@ -53,16 +54,16 @@ type User struct {
 	ExtraFields map[string]any `json:"extraFields"`
 }
 
-func (user User) Id() uint {
+func (user User) Id() any {
 	return user.ID
 }
 
 // Save implements saving model in bucket.
-func (this *User) Save(bucket *db.Bucket) error {
-	return db.SaveModel(bucket, this)
+func (user *User) Save(bucket db.Table) error {
+	return bbolt.SaveModel(bucket.(*bbolt.Bucket), user)
 }
 
-func Create(db_ *db.DB, userStr string) *User {
+func Create(db_ db.DB, userStr string) *User {
 	var user User
 	json.Unmarshal([]byte(userStr), &user)
 	d := map[string]any{}
@@ -78,23 +79,24 @@ func Create(db_ *db.DB, userStr string) *User {
 	return &user
 }
 
-func CreateIfExists(db_ *db.DB, userStr string) *User {
+func CreateIfExists(db_ db.DB, userStr string) *User {
 	if !CheckUser(db_, userStr) {
 		return nil
 	}
 	return Create(db_, userStr)
 }
 
-func (user User) Create(db_ *db.DB, userStr string) db.Model {
+func (user User) Create(db_ db.DB, userStr string) db.Model {
 	return Create(db_, userStr)
 }
 
-func CheckUser(db_ *db.DB, userStr string) bool {
+func CheckUser(db_ db.DB, userStr string) bool {
 	user := Create(db_, userStr)
 	if user.ID == 0 {
 		return false
 	}
-	userBct, _ := db_.Bucket("users", &User{})
+	userBctI, _ := db_.Table("users", User{})
+	userBct := userBctI.(*bbolt.Bucket)
 	ruserM := userBct.Objects.Get(user.ID)
 	if ruserM == nil {
 		return false
@@ -108,7 +110,7 @@ func CheckUser(db_ *db.DB, userStr string) bool {
 	return true
 }
 
-func (user User) Delete(db_ *db.DB) error {
-	userBct, _ := db_.Bucket("users", User{})
+func (user User) Delete(db_ db.DB) error {
+	userBct, _ := db_.Table("users", User{})
 	return userBct.Delete(user.ID)
 }

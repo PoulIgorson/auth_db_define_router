@@ -12,6 +12,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
@@ -362,4 +363,53 @@ func Pop[T comparable](lst []T, index int) ([]T, T) {
 		lst = append(t, lst[index+1:]...)
 	}
 	return lst, x
+}
+
+func BasicAuth(username, password string) string {
+	auth := username + ":" + password
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+type Headers map[string]string
+type Data map[string]any
+
+func GetResponse(method, curl string, headers Headers, data Data) (int, []byte, error) {
+	dataByte, err := json.Marshal(data)
+	if err != nil {
+		return 500, nil, fmt.Errorf("GetResponse: marshal data: %v", err)
+	}
+
+	req, err := http.NewRequest(method, curl, strings.NewReader(string(dataByte)))
+	if err != nil {
+		return 500, nil, fmt.Errorf("GetResponse: create request: %v", err)
+	}
+
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 500, nil, fmt.Errorf("GetResponse: get response: %v", err)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, body, nil
+}
+
+func GetJSONResponse(method, curl string, headers Headers, data Data) (int, any, error) {
+	status, body, err := GetResponse(method, curl, headers, data)
+	if err != nil {
+		return status, body, err
+	}
+	var response any
+	if err := json.Unmarshal(body, &response); err != nil {
+		if err1 := json.Unmarshal([]byte(string(body)[3:]), &response); err1 != nil {
+			return 500, nil, fmt.Errorf("GetJSONResponse: unmarshal response:\n error: %v\n body: %v", err1, string(body))
+		}
+	}
+
+	return status, response, nil
 }

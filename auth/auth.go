@@ -4,9 +4,9 @@ package auth
 import (
 	"github.com/gofiber/fiber/v2"
 
-	db "github.com/PoulIgorson/sub_engine_fiber/database"
-	user "github.com/PoulIgorson/sub_engine_fiber/database/buckets/user"
+	db "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
+	user "github.com/PoulIgorson/sub_engine_fiber/models/user"
 )
 
 var IgnoreUrls = []string{
@@ -14,17 +14,20 @@ var IgnoreUrls = []string{
 }
 
 // New return handler for auth.
-func New(db_ *db.DB, ignoreUrls ...[]string) fiber.Handler {
+func New(db_ db.DB, ignoreUrls ...[]string) fiber.Handler {
 	if len(ignoreUrls) > 0 {
 		IgnoreUrls = append(IgnoreUrls, ignoreUrls[0]...)
 	}
 	return myNew(db_)
 }
 
-func myNew(db_ *db.DB) fiber.Handler {
+func myNew(db_ db.DB) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userStr := c.Cookies("userCookie")
 		cuser := user.CreateIfExists(db_, userStr)
+		if cuser == nil {
+			cuser = (*user.User)(nil)
+		}
 		c.Context().SetUserValue("user", cuser)
 		if Contains(IgnoreUrls, c.Path()) || cuser != nil {
 			return c.Next()

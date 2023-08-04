@@ -6,7 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	db "github.com/PoulIgorson/sub_engine_fiber/database"
+	db "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	admin "github.com/PoulIgorson/sub_engine_fiber/router/admin"
 	auth "github.com/PoulIgorson/sub_engine_fiber/router/auth"
 	functions "github.com/PoulIgorson/sub_engine_fiber/router/functions"
@@ -15,7 +15,7 @@ import (
 type Url struct {
 	Method      string
 	Path        string
-	Handler     func(*db.DB, ...interface{}) fiber.Handler
+	Handler     func(db.DB, ...interface{}) fiber.Handler
 	Name        string
 	DisplayName string
 }
