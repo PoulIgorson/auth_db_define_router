@@ -10,7 +10,7 @@ import (
 )
 
 type Car struct {
-	ID    string `json:"id"`
+	ID    any `json:"id"`
 	Model string `json:"model"`
 	Color string `json:"color"`
 	City  string `json:"city"`

@@ -46,7 +46,7 @@ func GetRole(name string, access ...uint) *Role {
 
 // User presents model of bucket.
 type User struct {
-	ID       string `json:"id"`
+	ID       any `json:"id"`
 	Login    string `json:"login"`
 	Password string `json:"password"`
 	Role     *Role  `json:"role"`
