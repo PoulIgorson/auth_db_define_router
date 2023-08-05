@@ -6,7 +6,6 @@ import (
 
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
-	. "github.com/PoulIgorson/sub_engine_fiber/define"
 )
 
 // DataBase implements interface access to bbolt db.
@@ -45,11 +44,14 @@ func (db *DataBase) Table(name string, model Model) (Table, Error) {
 	if db.buckets[name] != nil {
 		return db.buckets[name], nil
 	}
-	_, err := Check(&model, "ID")
-	if err != nil {
-		return nil, NewErrorf(err.Error())
+	_, ok := model.Id().(uint)
+	if !ok && name != "user" {
+		_, ok = model.Id().(float64)
+		if !ok {
+			return nil, NewErrorf("bbolt: id must be uint")
+		}
 	}
-	err = db.boltDB.Update(func(tx *bolt.Tx) error {
+	err := db.boltDB.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(name))
 		return err
 	})

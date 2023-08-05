@@ -38,7 +38,14 @@ func (manager *Manager) Copy() ManagerI {
 }
 
 func (manager *Manager) Get(idI any) Model {
-	id := idI.(uint)
+	id, ok := idI.(uint)
+	if !ok {
+		idF, ok := idI.(float64)
+		if !ok {
+			return nil
+		}
+		id = uint(int(idF))
+	}
 	for manager.rwObjects {
 	}
 	manager.rwObjects = true

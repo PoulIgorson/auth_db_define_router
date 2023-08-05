@@ -59,13 +59,20 @@ func (bucket *Bucket) Count() uint {
 
 // Get implements getting value of key in bucket.
 func (bucket *Bucket) Get(keyI any) (Model, Error) {
-	key := keyI.(uint)
+	key, ok := keyI.(uint)
+	if !ok {
+		keyF, ok := keyI.(float64)
+		if !ok {
+			return nil, NewErrorf("bbolt: key must be uint")
+		}
+		key = uint(int(keyF))
+	}
 	var value string
 	err := bucket.db.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
 		value = string(bucket.Get([]byte(fmt.Sprint(key))))
 		if value == "" {
-			return fmt.Errorf("key `%v` is not exists", key)
+			return fmt.Errorf("bbolt: key `%v` is not exists", key)
 		}
 		return nil
 	})
@@ -73,30 +80,44 @@ func (bucket *Bucket) Get(keyI any) (Model, Error) {
 		err = NewErrValueDelete(key)
 	}
 	if err != nil {
-		return nil, NewErrorf("Bucket.Get: %v", err.Error())
+		return nil, NewErrorf("bbolt: Bucket.Get: %v", err.Error())
 	}
 	return bucket.model.Create(bucket.db, value), nil
 }
 
 // Set implements setting value of key in bucket.
 func (bucket *Bucket) set(keyI any, value string) Error {
-	key := keyI.(uint)
+	key, ok := keyI.(uint)
+	if !ok {
+		keyF, ok := keyI.(float64)
+		if !ok {
+			return NewErrorf("bbolt: key must be uint")
+		}
+		key = uint(int(keyF))
+	}
 	if _, err := bucket.Get(key); err != nil && err.Name() == NewErrValueDelete(0).Name() {
-		return NewErrorf("Bucket.Set: %v", err.Error())
+		return NewErrorf("bbolt: Bucket.Set: %v", err.Error())
 	}
 	err := bucket.db.boltDB.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
 		return bucket.Put([]byte(fmt.Sprint(key)), []byte(value))
 	})
 	if err != nil {
-		logs.Error("Bucket.Set: Error of saving bucket `%v`: %v", bucket.Name(), err.Error())
+		logs.Error("bbolt: Bucket.Set: Error of saving bucket `%v`: %v", bucket.Name(), err.Error())
 	}
 	return nil
 }
 
 // Delete implements Deleting value of key in bucket.
 func (bucket *Bucket) Delete(keyI any) Error {
-	key := keyI.(uint)
+	key, ok := keyI.(uint)
+	if !ok {
+		keyF, ok := keyI.(float64)
+		if !ok {
+			return NewErrorf("bbolt: key must be uint")
+		}
+		key = uint(int(keyF))
+	}
 	for bucket.Objects.rwObjects {
 	}
 	bucket.Objects.rwObjects = true
@@ -115,7 +136,7 @@ func (bucket *Bucket) DeleteAll() Error {
 		return err
 	})
 	if err != nil {
-		return NewErrorf("Bucket.DeleteAll: %v", err.Error())
+		return NewErrorf("bbolt: Bucket.DeleteAll: %v", err.Error())
 	}
 	for bucket.Objects.rwObjects {
 	}
@@ -132,13 +153,20 @@ func (bucket *Bucket) Save(model Model) Error {
 // SaveModel saving bucket in db
 func SaveModel(bucket *Bucket, model Model) Error {
 	if bucket == nil {
-		return NewErrorf("SaveModel: %v", NewErrNilBucket().Error())
+		return NewErrorf("bbolt: SaveModel: %v", NewErrNilBucket().Error())
 	}
 	field_id, err := Check(model, "ID")
 	if err != nil {
-		return NewErrorf("SaveModel: %v", err.Error())
+		return NewErrorf("bbolt: SaveModel: %v", err.Error())
 	}
-	idUint := field_id.Interface().(uint)
+	idUint, ok := field_id.Interface().(uint)
+	if !ok {
+		idF, ok := field_id.Interface().(float64)
+		if !ok {
+			return NewErrorf("bbolt: key must be uint")
+		}
+		idUint = uint(int(idF))
+	}
 	if _, err := bucket.Get(idUint); err != nil || idUint == 0 {
 		next_id := bucket.Count() + 1
 		field_id.SetUint(uint64(next_id))
@@ -147,7 +175,7 @@ func SaveModel(bucket *Bucket, model Model) Error {
 	}
 	buf, err := json.Marshal(model)
 	if err != nil {
-		return NewErrorf("SaveModel: %v", err.Error())
+		return NewErrorf("bbolt: SaveModel: %v", err.Error())
 	}
 	if idUint == 0 {
 		next_id := bucket.Count() + 1
@@ -155,11 +183,11 @@ func SaveModel(bucket *Bucket, model Model) Error {
 		idUint = uint(next_id)
 		bucket.set(uint(0), fmt.Sprint(next_id+1))
 		if idUint == 0 {
-			return NewErrorf("SaveModel: internal error")
+			return NewErrorf("bbolt: SaveModel: internal error")
 		}
 		buf, err = json.Marshal(model)
 		if err != nil {
-			return NewErrorf("SaveModel: %v", err.Error())
+			return NewErrorf("bbolt: SaveModel: %v", err.Error())
 		}
 	}
 

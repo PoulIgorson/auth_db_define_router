@@ -336,7 +336,10 @@ func (db *DataBase) Table(name string, model Model) (Table, Error) {
 		return db.buckets[name], nil
 	}
 	if !db.ExistsTable(name) {
-		return nil, NewErrorf("table not exists")
+		return nil, NewErrorf("pb: table not exists")
+	}
+	if _, ok := model.Id().(string); !ok && name != "user" {
+		return nil, NewErrorf("pb: id must be string")
 	}
 	bucket := &Bucket{
 		db:    db,
@@ -353,7 +356,6 @@ func (db *DataBase) Table(name string, model Model) (Table, Error) {
 
 func (db *DataBase) ExistsTable(name string) bool {
 	_, err := db.pb.Filter(name, map[string]any{})
-	fmt.Println(err)
 	return err == nil
 }
 
@@ -396,7 +398,7 @@ func (bucket *Bucket) Get(id any) (Model, Error) {
 		return nil, ToError(err)
 	}
 	if len(records) == 0 {
-		return nil, NewErrorf("record not found")
+		return nil, NewErrorf("pb: record not found")
 	}
 	dataByte, _ := json.Marshal(records[0].data)
 	model := bucket.model.Create(bucket.db, string(dataByte))
@@ -418,8 +420,12 @@ func (bucket *Bucket) Save(model Model) Error {
 	return ToError(form.Submit())
 }
 
-func (bucket *Bucket) Delete(id any) Error {
-	return ToError(bucket.db.pb.Delete(bucket.name, id.(string)))
+func (bucket *Bucket) Delete(idI any) Error {
+	id, ok := idI.(string)
+	if !ok {
+		return NewErrorf("pb: id must be string")
+	}
+	return ToError(bucket.db.pb.Delete(bucket.name, id))
 }
 
 func (bucket *Bucket) DeleteAll() Error {
@@ -462,7 +468,10 @@ func (manager *Manager) Copy() ManagerI {
 }
 
 func (manager *Manager) Get(idI any) Model {
-	id := idI.(string)
+	id, ok := idI.(string)
+	if !ok {
+		return nil
+	}
 	for manager.rwObjects {
 	}
 	manager.rwObjects = true

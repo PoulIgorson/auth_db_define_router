@@ -10,7 +10,7 @@ import (
 )
 
 type Car struct {
-	ID    any `json:"id"`
+	ID    uint   `json:"id"`
 	Model string `json:"model"`
 	Color string `json:"color"`
 	City  string `json:"city"`
@@ -67,9 +67,9 @@ func show(cars []Model) {
 }
 
 func Run() {
-	identity := ""
-	password := ""
-	db_, err := db.OpenPocketBaseLocal(identity, password) //"sub_engine_fiber_db.db")
+	/*identity := ""
+	password := ""*/
+	db_, err := db.OpenBbolt( /*OpenPocketBaseLocal(identity, password) //*/ "sub_engine_fiber_db.db")
 	if err != nil {
 		panic(err)
 	}
@@ -99,6 +99,5 @@ func Run() {
 	// cars := carBct.Objects.Filter(db.Params{"Model": "Bug"}, db.Params{"Color": "black", "City": "Moscow"})
 	cars := carBct.Manager().Filter(Params{"Color": "pink2"})
 	show(cars.All())
-	for {
-	}
+	//for {}
 }
