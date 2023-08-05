@@ -46,7 +46,7 @@ func GetRole(name string, access ...uint) *Role {
 
 // User presents model of bucket.
 type User struct {
-	ID       uint   `json:"id"`
+	ID       string `json:"id"`
 	Login    string `json:"login"`
 	Password string `json:"password"`
 	Role     *Role  `json:"role"`
@@ -92,12 +92,11 @@ func (user User) Create(db_ db.DB, userStr string) db.Model {
 
 func CheckUser(db_ db.DB, userStr string) bool {
 	user := Create(db_, userStr)
-	if user.ID == 0 {
+	if user.ID == "" {
 		return false
 	}
-	userBctI, _ := db_.Table("users", &User{})
-	userBct := userBctI.(*bbolt.Bucket)
-	ruserM := userBct.Objects.Get(user.ID)
+	userBct, _ := db_.Table("users", &User{})
+	ruserM := userBct.Manager().Get(user.ID)
 	if ruserM == nil {
 		return false
 	}
