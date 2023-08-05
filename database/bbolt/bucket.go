@@ -147,11 +147,6 @@ func (bucket *Bucket) DeleteAll() Error {
 }
 
 func (bucket *Bucket) Save(model Model) Error {
-	return SaveModel(bucket, model)
-}
-
-// SaveModel saving bucket in db
-func SaveModel(bucket *Bucket, model Model) Error {
 	if bucket == nil {
 		return NewErrorf("bbolt: SaveModel: %v", NewErrNilBucket().Error())
 	}

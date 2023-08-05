@@ -4,7 +4,6 @@ package user
 import (
 	"encoding/json"
 
-	bbolt "github.com/PoulIgorson/sub_engine_fiber/database/bbolt"
 	db "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 )
 
@@ -60,7 +59,7 @@ func (user User) Id() any {
 
 // Save implements saving model in bucket.
 func (user *User) Save(bucket db.Table) error {
-	return bbolt.SaveModel(bucket.(*bbolt.Bucket), user)
+	return bucket.Save(user)
 }
 
 func Create(db_ db.DB, userStr string) *User {
