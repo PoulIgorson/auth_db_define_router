@@ -46,7 +46,7 @@ func GetRole(name string, access ...uint) *Role {
 
 // User presents model of bucket.
 type User struct {
-	ID       any `json:"id"`
+	ID       any    `json:"id"`
 	Login    string `json:"login"`
 	Password string `json:"password"`
 	Role     *Role  `json:"role"`
@@ -95,7 +95,7 @@ func CheckUser(db_ db.DB, userStr string) bool {
 	if user.ID == "" {
 		return false
 	}
-	userBct, _ := db_.Table("users", &User{})
+	userBct, _ := db_.Table("user", &User{})
 	ruserM := userBct.Manager().Get(user.ID)
 	if ruserM == nil {
 		return false
