@@ -97,8 +97,9 @@ func (form *Form) LoadData(data map[string]any) {
 		form.data = map[string]any{}
 	}
 	for field, value := range data {
-		if len(field) > 0 && !strings.Contains("=<>~", string(field[len(field)-1])) {
-			field += "="
+		if inner, ok := value.(map[string]any); ok {
+			valueB, _ := json.Marshal(inner)
+			value = string(valueB)
 		}
 		form.data[field] = value
 	}
@@ -148,7 +149,7 @@ func (form *Form) Submit() error {
 
 	var req *http.Request
 	curl := fmt.Sprintf("%v/api/collections/%v/records", form.app.address, form.record.collectionNameOrId)
-	if id, ok := form.data["id"]; !ok || id == "" {
+	if id, ok := form.data["id"]; !ok || id == "" || id == nil {
 		req, _ = http.NewRequest("POST", curl, bytes.NewReader(body.Bytes()))
 	} else {
 		req, _ = http.NewRequest("PATCH", curl+"/"+fmt.Sprint(form.data["id"]), bytes.NewReader(body.Bytes()))
