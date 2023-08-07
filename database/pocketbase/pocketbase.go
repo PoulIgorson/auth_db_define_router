@@ -167,7 +167,7 @@ func (form *Form) Submit() error {
 	responseBody, _ := io.ReadAll(response.Body)
 	var resp any
 	json.Unmarshal(responseBody, &resp)
-	if response.StatusCode != 200 {
+	if response.StatusCode != 200 && response.StatusCode != 204 {
 		fmt.Println("pocketbase.Submit.status-resp:", response.StatusCode, resp)
 		return fmt.Errorf("%v, %v", response.StatusCode, resp)
 	}
@@ -190,11 +190,11 @@ func (pb *PocketBase) getToken() (string, error) {
 		"POST", fmt.Sprintf("%v/api/collections/users/auth-with-password", pb.address),
 		Headers(headers), Data(data),
 	)
-	if status != 200 {
-		return "", fmt.Errorf("%v, %v, %v", status, resp, err)
-	}
 	if err != nil {
 		return "", err
+	}
+	if status != 200 && status != 204 {
+		return "", fmt.Errorf("%v, %v, %v", status, resp, err)
 	}
 	return resp.(map[string]any)["token"].(string), nil
 }
@@ -236,6 +236,9 @@ func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, pag
 		fmt.Println("pocketbase.Filter.getResponse.error:", err)
 		return nil, err
 	}
+	if status == 204 {
+		return []*Record{}, nil
+	}
 	if status != 200 {
 		fmt.Println("pocketbase.Filter.getResponse:", status, respI)
 		return nil, fmt.Errorf("%v, %v", status, respI)
@@ -273,7 +276,7 @@ func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 		fmt.Println("pocketbase.Filter.getResponse.error:", err)
 		return err
 	}
-	if status != 200 {
+	if status != 200 && status != 204 {
 		fmt.Println("pocketbase.Filter.getResponse:", status, respI)
 		return fmt.Errorf("%v, %v", status, respI)
 	}
@@ -299,6 +302,9 @@ func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName 
 		return nil, err
 	}
 	body, _ := io.ReadAll(response.Body)
+	if response.StatusCode != 204 {
+		return []byte{}, nil
+	}
 	if response.StatusCode != 200 {
 		fmt.Printf("pocketbase.GetFileAsSliceByte.response: status: %v, body: %v\n", response.StatusCode, fmt.Errorf("%v", body))
 		return nil, fmt.Errorf("%v", body)

@@ -79,7 +79,7 @@ func Run() {
 	fmt.Println("Please if you use pocketbase go to admin (login if required)")
 	fmt.Println("Create tables and set custom rules for demo of interface to pb:")
 	fmt.Println("\tcar with fields (model string, color string, city string)")
-	fmt.Println("If you not want set custom rules, then set `identity` and `password` in demo/demo_db.go")
+	// fmt.Println("If you not want set custom rules, then set `identity` and `password` in demo/demo_db.go")
 
 	// CreateModels(db_)
 
