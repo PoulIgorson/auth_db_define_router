@@ -553,34 +553,19 @@ func (manager *Manager) Filter(include Params, _ ...Params) ManagerI {
 
 func (manager *Manager) All() []Model {
 	objects := []Model{}
-	be := false
-	for id := range manager.objects {
-		for manager.rwObjects {
-		}
-		manager.rwObjects = true
-		model := manager.objects[id]
-		manager.rwObjects = false
-		be = true
-		objects = append(objects, model)
-	}
-	if !be && !manager.isInstance {
-		records, _ := manager.bucket.db.pb.Filter(manager.bucket.name, map[string]any{})
-		for _, record := range records {
-			model := recordToModel(record, manager.bucket.db, manager.bucket.model)
+	if manager.isInstance {
+		for id := range manager.objects {
 			for manager.rwObjects {
 			}
 			manager.rwObjects = true
-			if manager.objects[model.Id().(string)] == nil {
-				manager.count++
-			}
-			manager.objects[model.Id().(string)] = model
+			model := manager.objects[id]
 			manager.rwObjects = false
-			if manager.maxId < model.Id().(string) {
-				manager.maxId = model.Id().(string)
-			}
-			if manager.minId > model.Id().(string) || manager.minId == "" {
-				manager.minId = model.Id().(string)
-			}
+			objects = append(objects, model)
+		}
+	} else {
+		records, _ := manager.bucket.db.pb.Filter(manager.bucket.name, map[string]any{})
+		for _, record := range records {
+			model := recordToModel(record, manager.bucket.db, manager.bucket.model)
 			objects = append(objects, model)
 		}
 	}
@@ -588,26 +573,32 @@ func (manager *Manager) All() []Model {
 }
 
 func (manager *Manager) First() Model {
-	for manager.rwObjects {
+	var model Model
+	if manager.isInstance {
+		for manager.rwObjects {
+		}
+		manager.rwObjects = true
+		model = manager.objects[manager.minId]
+		manager.rwObjects = false
 	}
-	manager.rwObjects = true
-	model := manager.objects[manager.minId]
-	manager.rwObjects = false
 	return model
 }
 
 func (manager *Manager) Last() Model {
-	for manager.rwObjects {
+	var model Model
+	if manager.isInstance {
+		for manager.rwObjects {
+		}
+		manager.rwObjects = true
+		model = manager.objects[manager.maxId]
+		manager.rwObjects = false
 	}
-	manager.rwObjects = true
-	model := manager.objects[manager.maxId]
-	manager.rwObjects = false
 	return model
 }
 
 func (manager *Manager) Count() uint {
-	if manager.count == 0 {
-		return uint(len(manager.All()))
+	if manager.isInstance {
+		return manager.count
 	}
-	return manager.count
+	return uint(len(manager.All()))
 }
