@@ -3,6 +3,7 @@ package bbolt
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
@@ -151,12 +152,16 @@ func (bucket *Bucket) Save(model Model) Error {
 		return NewErrorf("bbolt: " + err.Error())
 	}
 	idUint, ok := model.Id().(uint)
+	if !ok && GetNameBucket(model) == "user" {
+		field_id.Set(reflect.ValueOf(uint(0)))
+		idUint, ok = uint(0), true
+	}
 	if !ok {
 		return NewErrorf("bbolt: key must be uint")
 	}
 	if idUint == 0 {
 		next_id := bucket.Count() + 1
-		field_id.SetUint(uint64(next_id))
+		field_id.Set(reflect.ValueOf(uint(next_id)))
 		idUint = next_id
 		bucket.set(uint(0), fmt.Sprint(next_id+1))
 	} else if _, err := bucket.Get(idUint); err != nil {
@@ -170,7 +175,7 @@ func (bucket *Bucket) Save(model Model) Error {
 
 	if idUint == 0 {
 		next_id := bucket.Count() + 1
-		field_id.SetUint(uint64(next_id))
+		field_id.Set(reflect.ValueOf(uint(next_id)))
 		idUint = uint(next_id)
 		bucket.set(uint(0), fmt.Sprint(next_id+1))
 		if idUint == 0 {

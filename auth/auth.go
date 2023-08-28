@@ -2,10 +2,11 @@
 package auth
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 
 	db "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
-	. "github.com/PoulIgorson/sub_engine_fiber/define"
 	user "github.com/PoulIgorson/sub_engine_fiber/models/user"
 )
 
@@ -29,9 +30,36 @@ func myNew(db_ db.DB) fiber.Handler {
 			cuser = (*user.User)(nil)
 		}
 		c.Context().SetUserValue("user", cuser)
-		if Contains(IgnoreUrls, c.Path()) || cuser != nil {
+		if ContainsPath(IgnoreUrls, c.Path()) || cuser != nil {
 			return c.Next()
 		}
 		return c.Redirect("/login")
 	}
+}
+
+func ContainsPath(urls []string, path string) bool {
+outer:
+	for _, url := range IgnoreUrls {
+		if url == path {
+			return true
+		}
+		if len(url) == 0 || len(path) == 0 {
+			continue
+		}
+		tokensUrl := strings.Split(url, "/")
+		tokensPath := strings.Split(path, "/")
+		for i := range tokensUrl {
+			if i == len(tokensPath) {
+				continue outer
+			}
+			if tokensUrl[i][0] == ':' {
+				continue
+			}
+			if tokensUrl[i] != tokensPath[i] {
+				continue outer
+			}
+		}
+		return true
+	}
+	return false
 }

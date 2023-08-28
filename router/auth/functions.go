@@ -141,6 +141,7 @@ func APIRegistration(db_ db.DB, urls ...interface{}) fiber.Handler {
 		}
 
 		cuser := user.User{
+			ID:          uint(0),
 			Login:       data["login"],
 			Password:    Hash([]byte(data["password1"])),
 			Role:        user.GetRole("", ParseUint(data["role"])),

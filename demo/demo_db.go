@@ -195,6 +195,18 @@ func Run() {
 	if err != nil {
 		panic(err)
 	}
+	car := &Car{
+		Color: "red",
+	}
+	if err := car.Save(carBct); err != nil {
+		panic(err)
+	}
+	fmt.Println(carBct.Manager().Filter(Params{"Color": "red"}).First())
+
+	/*carBct, err := db_.Table("", &Car{})
+	if err != nil {
+		panic(err)
+	}*/
 	/*catBct, err := db_.Table("", &Catalog{})
 	if err != nil {
 		panic(err)
@@ -231,14 +243,14 @@ func Run() {
 
 	// carBct.Delete(carBct.Objects.Count() - 3)
 	// cars := carBct.Objects.Filter(db.Params{"Model": "Bug"}, db.Params{"Color": "black", "City": "Moscow"})
-	cars := carBct.Manager().Filter(Params{"Color": "black"})
+	/*cars := carBct.Manager().Filter(Params{"Color": "black"})
 	showCar(cars.All())
 
 	if err := carBct.Delete(uint(6)); err != nil {
 		fmt.Println("car.Delete:", err)
 	}
 	cars = carBct.Manager().Filter(Params{"Color": "black"})
-	showCar(cars.All())
+	showCar(cars.All())*/
 	/*for {
 	}*/
 }
