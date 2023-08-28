@@ -52,7 +52,7 @@ outer:
 			if i == len(tokensPath) {
 				continue outer
 			}
-			if tokensUrl[i][0] == ':' {
+			if len(tokensUrl[i]) == 0 || tokensUrl[i][0] == ':' {
 				continue
 			}
 			if tokensUrl[i] != tokensPath[i] {
