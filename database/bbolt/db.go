@@ -69,6 +69,10 @@ func GetNameBucket(model Model) string {
 	return string(name)
 }
 
+func (db *DataBase) TableFromCache(name string) Table {
+	return db.buckets[name]
+}
+
 // Table returns pointer to Bucket in db,
 // Returns error if name is too long.
 // name is not required

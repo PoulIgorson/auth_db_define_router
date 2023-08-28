@@ -9,6 +9,7 @@ type DB interface {
 
 	Table(name string, model Model) (Table, Error)
 	ExistsTable(name string) bool
+	TableFromCache(name string) Table
 }
 
 type Table interface {

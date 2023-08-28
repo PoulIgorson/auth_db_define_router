@@ -338,6 +338,10 @@ func (db *DataBase) Close() Error {
 	return nil
 }
 
+func (db *DataBase) TableFromCache(name string) Table {
+	return db.buckets[name]
+}
+
 func (db *DataBase) Table(name string, model Model) (Table, Error) {
 	if db.buckets[name] != nil {
 		return db.buckets[name], nil
