@@ -146,7 +146,10 @@ func APIRegistration(db_ db.DB, urls ...interface{}) fiber.Handler {
 			Role:        user.GetRole("", ParseUint(data["role"])),
 			ExtraFields: copyData,
 		}
-		cuser.Save(users)
+		if err := cuser.Save(users); err != nil {
+			resp := fiber.Map{"Status": "500", "Error": err.Error()}
+			return c.JSON(resp)
+		}
 		return c.JSON(fiber.Map{"Status": "302", "redirectURL": "/login"})
 	}
 }
