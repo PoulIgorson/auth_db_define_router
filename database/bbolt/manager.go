@@ -11,7 +11,6 @@ type Manager struct {
 	isInstance bool
 	bucket     *Bucket
 
-	count     uint
 	objects   map[uint]Model
 	rwObjects bool
 	minId     uint
@@ -31,7 +30,6 @@ func (manager *Manager) Copy() ManagerI {
 		isInstance: true,
 		bucket:     manager.bucket,
 		objects:    manager.objects,
-		count:      manager.count,
 		minId:      manager.minId,
 		maxId:      manager.maxId,
 	}
@@ -40,34 +38,38 @@ func (manager *Manager) Copy() ManagerI {
 func (manager *Manager) Get(idI any) Model {
 	id, ok := idI.(uint)
 	if !ok {
-		idF, ok := idI.(float64)
-		if !ok {
-			return nil
-		}
-		id = uint(int(idF))
+		return nil
 	}
 	for manager.rwObjects {
 	}
 	manager.rwObjects = true
-	if m := manager.objects[id]; m != nil {
-		manager.rwObjects = false
+	m := manager.objects[id]
+	manager.rwObjects = false
+	if m != nil {
+		manager.CheckPointers(m)
 		return m
 	}
-	manager.rwObjects = false
+
 	model, _ := manager.bucket.Get(id)
-	if model != nil {
+	if model == nil {
 		for manager.rwObjects {
 		}
 		manager.rwObjects = true
-		manager.objects[id] = model
+		delete(manager.objects, id)
 		manager.rwObjects = false
-		manager.count++
-		if manager.maxId < id {
-			manager.maxId = id
-		}
-		if manager.minId > id || manager.minId == 0 {
-			manager.minId = id
-		}
+		return nil
+	}
+
+	for manager.rwObjects {
+	}
+	manager.rwObjects = true
+	manager.objects[id] = model
+	manager.rwObjects = false
+	if manager.maxId < id {
+		manager.maxId = id
+	}
+	if manager.minId > id || manager.minId == 0 {
+		manager.minId = id
 	}
 	return model
 }
@@ -106,41 +108,23 @@ func (manager *Manager) CheckModel(model Model, include Params, exclude ...Param
 func (manager *Manager) Filter(include Params, exclude ...Params) ManagerI {
 	newObjects := map[uint]Model{}
 	var maxId, minId uint
-	be := false
 	for manager.rwObjects {
 	}
 	manager.rwObjects = true
 	for id, model := range manager.objects {
-		be = true
+		manager.CheckPointers(model)
 		if manager.CheckModel(model, include, exclude...) {
 			newObjects[id] = model
-			if id > maxId {
+			if maxId < id {
 				maxId = id
 			}
-			if minId > id || minId == 0 {
+			if id < minId || minId == 0 {
 				minId = id
 			}
 		}
 	}
 	manager.rwObjects = false
-	if !be && !manager.isInstance {
-		start := manager.minId
-		if start == 0 {
-			start = 1
-		}
-		for inc := start; inc < manager.bucket.Count()+1; inc++ {
-			model := manager.Get(inc)
-			if manager.CheckModel(model, include, exclude...) {
-				newObjects[model.Id().(uint)] = model
-				if model.Id().(uint) > maxId {
-					maxId = model.Id().(uint)
-				}
-				if minId > model.Id().(uint) || minId == 0 {
-					minId = model.Id().(uint)
-				}
-			}
-		}
-	}
+
 	return &Manager{
 		isInstance: true,
 		bucket:     manager.bucket,
@@ -152,29 +136,15 @@ func (manager *Manager) Filter(include Params, exclude ...Params) ManagerI {
 
 func (manager *Manager) All() []Model {
 	objects := []Model{}
-	be := false
+	for manager.rwObjects {
+	}
+	manager.rwObjects = true
 	for id := range manager.objects {
-		for manager.rwObjects {
-		}
-		manager.rwObjects = true
 		model := manager.objects[id]
-		manager.rwObjects = false
-		be = true
+		manager.CheckPointers(model)
 		objects = append(objects, model)
 	}
-	if !be && !manager.isInstance {
-		start := manager.minId
-		if start == 0 {
-			start = 1
-		}
-		for inc := start; inc < manager.bucket.Count()+1; inc++ {
-			model := manager.Get(inc)
-			if model == nil {
-				continue
-			}
-			objects = append(objects, model)
-		}
-	}
+	manager.rwObjects = false
 	return objects
 }
 
@@ -184,6 +154,7 @@ func (manager *Manager) First() Model {
 	manager.rwObjects = true
 	model := manager.objects[manager.minId]
 	manager.rwObjects = false
+	manager.CheckPointers(model)
 	return model
 }
 
@@ -193,9 +164,78 @@ func (manager *Manager) Last() Model {
 	manager.rwObjects = true
 	model := manager.objects[manager.maxId]
 	manager.rwObjects = false
+	manager.CheckPointers(model)
 	return model
 }
 
 func (manager *Manager) Count() uint {
 	return uint(len(manager.All()))
+}
+
+func (manager *Manager) CheckPointers(model Model) {
+	if model == nil {
+		return
+	}
+	if _, ok := model.Id().(uint); !ok {
+		return
+	}
+	modelT := reflect.TypeOf(model)
+	if modelT.Kind() != reflect.Pointer {
+		return
+	}
+	modelT = modelT.Elem()
+	modelV := reflect.ValueOf(model).Elem()
+	for i := 0; i < modelT.NumField(); i++ {
+		field := modelT.Field(i)
+		if field.Type.Kind() == reflect.Array || field.Type.Kind() == reflect.Slice {
+			list := modelV.Field(i)
+			for i := 0; i < list.Len(); i++ {
+				elem := list.Index(i)
+				elemT := reflect.TypeOf(elem.Interface())
+				if elemT.Kind() != reflect.Pointer {
+					break
+				}
+				if !elem.IsNil() {
+					submodel, ok := elem.Interface().(Model)
+					if !ok {
+						break
+					}
+					manager.CheckPointers(submodel)
+					bucket := manager.bucket.db.buckets[GetNameBucket(submodel)]
+					if bucket != nil {
+						submodel = bucket.Objects.Get(submodel.Id())
+						if submodel != nil {
+							elem.Set(reflect.ValueOf(submodel))
+							continue
+						}
+					}
+					elem.SetZero()
+				}
+			}
+			continue
+		}
+		if field.Type.Kind() != reflect.Pointer || !field.IsExported() {
+			continue
+		}
+		if field.Tag.Get("json") != "-" {
+			continue
+		}
+		value := modelV.Field(i)
+		if !value.IsNil() {
+			submodel, ok := value.Interface().(Model)
+			if !ok {
+				continue
+			}
+			manager.CheckPointers(submodel)
+			bucket := manager.bucket.db.buckets[GetNameBucket(submodel)]
+			if bucket != nil {
+				submodel = bucket.Objects.Get(submodel.Id())
+				if submodel != nil {
+					value.Set(reflect.ValueOf(submodel))
+					continue
+				}
+			}
+			value.SetZero()
+		}
+	}
 }

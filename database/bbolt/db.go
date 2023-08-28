@@ -2,6 +2,8 @@
 package bbolt
 
 import (
+	"reflect"
+
 	bolt "go.etcd.io/bbolt"
 
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
@@ -33,23 +35,51 @@ func (db *DataBase) Close() Error {
 	db.buckets = nil
 	err := db.boltDB.Close()
 	if err == nil {
+		db.boltDB = nil
 		return nil
 	}
 	return NewErrorf(err.Error())
 }
 
+func GetNameBucket(model Model) string {
+	typeName := ""
+	if t := reflect.TypeOf(model); t.Kind() == reflect.Pointer {
+		typeName = t.Elem().Name()
+	} else {
+		typeName = t.Name()
+	}
+	var name []rune
+	for i, ch := range typeName {
+		if i == 0 {
+			if 'A' <= ch && ch <= 'Z' {
+				ch += 0x20
+			}
+			name = append(name, ch)
+			continue
+		}
+		if 'A' <= ch && ch <= 'Z' {
+			if typeName[i-1] != '_' {
+				name = append(name, '_')
+			}
+			name = append(name, ch+0x20)
+			continue
+		}
+		name = append(name, ch)
+	}
+	return string(name)
+}
+
 // Table returns pointer to Bucket in db,
-// Returns error if name is blank, or name is too long.
-func (db *DataBase) Table(name string, model Model) (Table, Error) {
+// Returns error if name is too long.
+// name is not required
+func (db *DataBase) Table(_ string, model Model) (Table, Error) {
+	name := GetNameBucket(model)
 	if db.buckets[name] != nil {
 		return db.buckets[name], nil
 	}
 	_, ok := model.Id().(uint)
 	if !ok && name != "user" {
-		_, ok = model.Id().(float64)
-		if !ok {
-			return nil, NewErrorf("bbolt: id must be uint")
-		}
+		return nil, NewErrorf("bbolt: id must be uint")
 	}
 	err := db.boltDB.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(name))
@@ -66,6 +96,19 @@ func (db *DataBase) Table(name string, model Model) (Table, Error) {
 	bucket.Objects = &Manager{
 		bucket:  bucket,
 		objects: map[uint]Model{},
+	}
+	for inc := uint(1); inc < bucket.Count()+1; inc++ {
+		model, _ := bucket.Get(inc)
+		if model == nil {
+			continue
+		}
+		if bucket.Objects.maxId < inc {
+			bucket.Objects.maxId = inc
+		}
+		if bucket.Objects.minId > inc || bucket.Objects.minId == 0 {
+			bucket.Objects.minId = inc
+		}
+		bucket.Objects.objects[inc] = model
 	}
 	db.buckets[name] = bucket
 	return bucket, nil

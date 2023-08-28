@@ -100,6 +100,9 @@ func (bucket *Bucket) set(keyI any, value string) Error {
 	}
 	err := bucket.db.boltDB.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
+		if value == DELETE {
+			return bucket.Delete([]byte(fmt.Sprint(key)))
+		}
 		return bucket.Put([]byte(fmt.Sprint(key)), []byte(value))
 	})
 	if err != nil {
@@ -112,11 +115,7 @@ func (bucket *Bucket) set(keyI any, value string) Error {
 func (bucket *Bucket) Delete(keyI any) Error {
 	key, ok := keyI.(uint)
 	if !ok {
-		keyF, ok := keyI.(float64)
-		if !ok {
-			return NewErrorf("bbolt: key must be uint")
-		}
-		key = uint(int(keyF))
+		return NewErrorf("bbolt: key must be uint")
 	}
 	for bucket.Objects.rwObjects {
 	}
@@ -147,56 +146,44 @@ func (bucket *Bucket) DeleteAll() Error {
 }
 
 func (bucket *Bucket) Save(model Model) Error {
-	if bucket == nil {
-		return NewErrorf("bbolt: SaveModel: %v", NewErrNilBucket().Error())
-	}
 	field_id, err := Check(model, "ID")
 	if err != nil {
-		return NewErrorf("bbolt: SaveModel: %v", err.Error())
+		return NewErrorf("bbolt: " + err.Error())
 	}
-	idUint, ok := field_id.Interface().(uint)
+	idUint, ok := model.Id().(uint)
 	if !ok {
-		idF, ok := field_id.Interface().(float64)
-		if !ok {
-			return NewErrorf("bbolt: key must be uint")
-		}
-		idUint = uint(int(idF))
+		return NewErrorf("bbolt: key must be uint")
 	}
-	if _, err := bucket.Get(idUint); err != nil || idUint == 0 {
+	if idUint == 0 {
 		next_id := bucket.Count() + 1
 		field_id.SetUint(uint64(next_id))
-		idUint = uint(next_id)
+		idUint = next_id
 		bucket.set(uint(0), fmt.Sprint(next_id+1))
+	} else if _, err := bucket.Get(idUint); err != nil {
+		return err
 	}
+
 	buf, err := json.Marshal(model)
 	if err != nil {
-		return NewErrorf("bbolt: SaveModel: %v", err.Error())
+		return NewErrorf("bbolt: " + err.Error())
 	}
+
 	if idUint == 0 {
 		next_id := bucket.Count() + 1
 		field_id.SetUint(uint64(next_id))
 		idUint = uint(next_id)
 		bucket.set(uint(0), fmt.Sprint(next_id+1))
 		if idUint == 0 {
-			return NewErrorf("bbolt: SaveModel: internal error")
+			return NewErrorf("bbolt: internal error")
 		}
 		buf, err = json.Marshal(model)
 		if err != nil {
-			return NewErrorf("bbolt: SaveModel: %v", err.Error())
+			return NewErrorf("bbolt: " + err.Error())
 		}
 	}
 
-	for bucket.Objects.rwObjects {
-	}
-	bucket.Objects.rwObjects = true
-	if _, ok := bucket.Objects.objects[idUint]; !ok {
-		bucket.Objects.count++
-	}
-	bucket.Objects.rwObjects = false
-
 	errr := bucket.set(idUint, string(buf))
-
-	if err != nil {
+	if errr != nil {
 		return errr
 	}
 
