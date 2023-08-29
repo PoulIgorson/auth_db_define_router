@@ -70,7 +70,11 @@ func GetNameBucket(model Model) string {
 }
 
 func (db *DataBase) TableFromCache(name string) Table {
-	return db.buckets[name]
+	bucket, ok := db.buckets[name]
+	if !ok || bucket == nil {
+		return nil
+	}
+	return bucket
 }
 
 // Table returns pointer to Bucket in db,
@@ -101,6 +105,7 @@ func (db *DataBase) Table(_ string, model Model) (Table, Error) {
 		bucket:  bucket,
 		objects: map[uint]Model{},
 	}
+	db.buckets[name] = bucket
 	for inc := uint(1); inc < bucket.Count()+1; inc++ {
 		model, _ := bucket.Get(inc)
 		if model == nil {
@@ -114,7 +119,6 @@ func (db *DataBase) Table(_ string, model Model) (Table, Error) {
 		}
 		bucket.Objects.objects[inc] = model
 	}
-	db.buckets[name] = bucket
 	return bucket, nil
 }
 
