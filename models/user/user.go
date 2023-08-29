@@ -75,6 +75,11 @@ func Create(db_ db.DB, userStr string) *User {
 			}
 		}
 	}
+	if _, ok := user.ID.(uint); !ok {
+		if idF, ok := user.ID.(float64); ok {
+			user.ID = uint(int(idF))
+		}
+	}
 	return &user
 }
 
