@@ -108,13 +108,14 @@ func (manager *Manager) CheckModel(model Model, include Params, exclude ...Param
 func (manager *Manager) Filter(include Params, exclude ...Params) ManagerI {
 	newObjects := map[uint]Model{}
 	var maxId, minId uint
-	for manager.rwObjects {
-	}
-	manager.rwObjects = true
 	for id, model := range manager.objects {
 		manager.CheckPointers(model)
 		if manager.CheckModel(model, include, exclude...) {
+			for manager.rwObjects {
+			}
+			manager.rwObjects = true
 			newObjects[id] = model
+			manager.rwObjects = false
 			if maxId < id {
 				maxId = id
 			}
@@ -123,7 +124,6 @@ func (manager *Manager) Filter(include Params, exclude ...Params) ManagerI {
 			}
 		}
 	}
-	manager.rwObjects = false
 
 	return &Manager{
 		isInstance: true,
@@ -136,15 +136,15 @@ func (manager *Manager) Filter(include Params, exclude ...Params) ManagerI {
 
 func (manager *Manager) All() []Model {
 	objects := []Model{}
-	for manager.rwObjects {
-	}
-	manager.rwObjects = true
 	for id := range manager.objects {
+		for manager.rwObjects {
+		}
+		manager.rwObjects = true
 		model := manager.objects[id]
+		manager.rwObjects = false
 		manager.CheckPointers(model)
 		objects = append(objects, model)
 	}
-	manager.rwObjects = false
 	return objects
 }
 
