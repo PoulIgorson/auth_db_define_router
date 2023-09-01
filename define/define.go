@@ -291,7 +291,7 @@ func GoToStruct(value reflect.Value) (*reflect.Value, error) {
 	}
 }
 
-func GetTagField(model any, fieldName string) string {
+func GetTagField(model any, fieldName string, tagName ...string) string {
 	vModel, err := GoToStruct(reflect.ValueOf(model))
 	if err != nil {
 		return ""
@@ -300,8 +300,11 @@ func GetTagField(model any, fieldName string) string {
 	if !ok {
 		return ""
 	}
-	tag := string(field.Tag)
-	return tag
+	tag := field.Tag
+	if len(tagName) > 0 && tagName[0] != "" {
+		tag = reflect.StructTag(tag.Get(tagName[0]))
+	}
+	return string(tag)
 }
 
 func Check(imodel interface{}, field_name string) (*reflect.Value, error) {

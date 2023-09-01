@@ -521,12 +521,13 @@ func recordToModel(record *Record, db DB, model Model) Model {
 func nameFieldsToJSONTags(model Model, params Params) Params {
 	tagParams := Params{}
 	for nameField, value := range params {
-		tag := GetTagField(model, nameField)
-		if len(tag) > 5 {
-			tag = tag[6 : len(tag)-1]
-		}
+		tag := GetTagField(model, nameField, "json")
 		fmt.Println(nameField, tag)
-		tagParams[tag] = value
+		if tag != "" {
+			tagParams[tag] = value
+		} else {
+			tagParams[nameField] = value
+		}
 	}
 	return tagParams
 }
