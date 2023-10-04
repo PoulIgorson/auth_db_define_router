@@ -10,6 +10,7 @@ type DB interface {
 	Table(name string, model Model) (Table, Error)
 	ExistsTable(name string) bool
 	TableFromCache(name string) Table
+	TableOfModel(model Model) Table
 }
 
 type Table interface {
@@ -20,9 +21,11 @@ type Table interface {
 	Get(id any) (Model, Error)
 	Save(model Model) Error
 	Delete(id any) Error
+
 	DeleteAll() Error
 	Count() uint
 	Manager() ManagerI
+	SetManager(ManagerI)
 }
 
 type Model interface {
@@ -33,14 +36,20 @@ type Model interface {
 	Delete(DB) error
 }
 
+type Nexter func() any
 type Params map[string]any
 type ManagerI interface {
 	IsInstance() bool
-	Copy() ManagerI
 	Table() Table
+	Copy() ManagerI
+	Clear()
 
 	Get(id any) Model
 	Delete(id any)
+	Store(id any, model Model)
+	ClearId(id any)
+
+	Broadcast(Nexter)
 	All() []Model
 	Filter(include Params, exclude ...Params) ManagerI
 

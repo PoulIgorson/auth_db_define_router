@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"golang.org/x/exp/constraints"
 )
 
@@ -68,6 +67,15 @@ func Max[T constraints.Ordered](args ...T) T {
 	return max
 }
 
+// Sum return sum value in args.
+func Sum[T constraints.Ordered](args ...T) T {
+	var sum T
+	for _, arg := range args {
+		sum += arg
+	}
+	return sum
+}
+
 // GetToday returns string today date.
 func GetToday() string {
 	ctime := time.Now()
@@ -80,11 +88,6 @@ func GetToday() string {
 		month = "0" + month
 	}
 	return fmt.Sprintf("%v-%v-%v", day, month, ctime.Year())
-}
-
-// Dict convet interface{} to fiber.Map.
-func Dict(dict interface{}) fiber.Map {
-	return dict.(map[string]interface{})
 }
 
 // ErrorToStr convert []error to string.
@@ -428,4 +431,72 @@ func GetJSONResponse(method, curl string, headers Headers, data Data) (int, any,
 	}
 
 	return status, response, nil
+}
+
+/*
+Compare returns
+
+	-2 if a == nil || b == nil
+	-1 if a < b
+	 0 if a == b
+	+1 if a > b
+*/
+func Compare(a, b any) int {
+	if a == nil || b == nil {
+		return -2
+	}
+	v := reflect.ValueOf(a)
+	u := reflect.ValueOf(b)
+
+	if v.Equal(u) {
+		return 0
+	}
+
+	switch v.Kind() {
+	case reflect.Bool:
+		a := v.Bool()
+		b := u.Bool()
+		if !a && b {
+			return -1
+		} else if a == b {
+			return 0
+		}
+		return 1
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		a := v.Int()
+		b := u.Int()
+		if a < b {
+			return -1
+		} else if a == b {
+			return 0
+		}
+		return 1
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		a := v.Uint()
+		b := u.Uint()
+		if a < b {
+			return -1
+		} else if a == b {
+			return 0
+		}
+		return 1
+	case reflect.Float32, reflect.Float64:
+		a := v.Float()
+		b := u.Float()
+		if a < b {
+			return -1
+		} else if a == b {
+			return 0
+		}
+		return 1
+	case reflect.String:
+		a, b := v.String(), u.String()
+		if a < b {
+			return -1
+		} else if a == b {
+			return 0
+		}
+		return 1
+	}
+	return -2
 }

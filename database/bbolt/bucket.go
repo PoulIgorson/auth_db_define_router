@@ -22,11 +22,15 @@ type Bucket struct {
 	name string
 
 	model   Model
-	Objects *Manager
+	Objects ManagerI
 }
 
 func (bucket *Bucket) Manager() ManagerI {
 	return bucket.Objects
+}
+
+func (bucket *Bucket) SetManager(newManager ManagerI) {
+	bucket.Objects = newManager
 }
 
 // DB returns pointer to DB.
@@ -118,11 +122,7 @@ func (bucket *Bucket) Delete(keyI any) Error {
 	if !ok {
 		return NewErrorf("bbolt: key must be uint")
 	}
-	for bucket.Objects.rwObjects {
-	}
-	bucket.Objects.rwObjects = true
-	delete(bucket.Objects.objects, key)
-	bucket.Objects.rwObjects = false
+	bucket.Objects.ClearId(key)
 	return bucket.set(key, DELETE)
 }
 
@@ -138,11 +138,7 @@ func (bucket *Bucket) DeleteAll() Error {
 	if err != nil {
 		return NewErrorf("bbolt: Bucket.DeleteAll: %v", err.Error())
 	}
-	for bucket.Objects.rwObjects {
-	}
-	bucket.Objects.rwObjects = true
-	bucket.Objects.objects = map[uint]Model{}
-	bucket.Objects.rwObjects = false
+	bucket.Objects.Clear()
 	return nil
 }
 
@@ -194,17 +190,7 @@ func (bucket *Bucket) Save(model Model) Error {
 
 	model, _ = bucket.Get(idUint)
 
-	for bucket.Objects.rwObjects {
-	}
-	bucket.Objects.rwObjects = true
-	bucket.Objects.objects[idUint] = model
-	bucket.Objects.rwObjects = false
+	bucket.Objects.Store(idUint, model)
 
-	if bucket.Objects.maxId < idUint {
-		bucket.Objects.maxId = idUint
-	}
-	if bucket.Objects.minId > idUint || bucket.Objects.minId == 0 {
-		bucket.Objects.minId = idUint
-	}
 	return nil
 }

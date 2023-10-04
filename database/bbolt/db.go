@@ -3,17 +3,39 @@ package bbolt
 
 import (
 	"reflect"
+	"sync"
 
 	bolt "go.etcd.io/bbolt"
 
+	"github.com/PoulIgorson/sub_engine_fiber/database/base"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 )
 
+type bucketMap struct {
+	sync.Map
+}
+
+func (m *bucketMap) Load(key string) *Bucket {
+	v, ok := m.Map.Load(key)
+	if !ok {
+		return nil
+	}
+	return v.(*Bucket)
+}
+
+func (m *bucketMap) LoadOK(key string) (*Bucket, bool) {
+	v, ok := m.Map.Load(key)
+	if !ok {
+		return nil, false
+	}
+	return v.(*Bucket), true
+}
+
 // DataBase implements interface access to bbolt db.
 type DataBase struct {
 	boltDB  *bolt.DB
-	buckets map[string]*Bucket
+	buckets bucketMap
 }
 
 func (db *DataBase) BoltDB() *bolt.DB {
@@ -27,12 +49,12 @@ func Open(path string) (*DataBase, Error) {
 	if err != nil {
 		return nil, NewErrorf(err.Error())
 	}
-	return &DataBase{db, map[string]*Bucket{}}, nil
+	return &DataBase{boltDB: db}, nil
 }
 
 // Close implements access to close DataBase.
 func (db *DataBase) Close() Error {
-	db.buckets = nil
+	db.buckets = bucketMap{}
 	err := db.boltDB.Close()
 	if err == nil {
 		db.boltDB = nil
@@ -70,11 +92,16 @@ func GetNameBucket(model Model) string {
 }
 
 func (db *DataBase) TableFromCache(name string) Table {
-	bucket, ok := db.buckets[name]
+	bucket, ok := db.buckets.LoadOK(name)
 	if !ok || bucket == nil {
 		return nil
 	}
 	return bucket
+}
+
+func (db *DataBase) TableOfModel(model Model) Table {
+	name := GetNameBucket(model)
+	return db.buckets.Load(name)
 }
 
 // Table returns pointer to Bucket in db,
@@ -82,8 +109,8 @@ func (db *DataBase) TableFromCache(name string) Table {
 // name is not required
 func (db *DataBase) Table(_ string, model Model) (Table, Error) {
 	name := GetNameBucket(model)
-	if db.buckets[name] != nil {
-		return db.buckets[name], nil
+	if bucket := db.buckets.Load(name); bucket != nil {
+		return bucket, nil
 	}
 	_, ok := model.Id().(uint)
 	if !ok && name != "user" {
@@ -101,30 +128,24 @@ func (db *DataBase) Table(_ string, model Model) (Table, Error) {
 		name:  name,
 		model: model,
 	}
-	bucket.Objects = &Manager{
-		bucket:  bucket,
-		objects: map[uint]Model{},
-	}
-	db.buckets[name] = bucket
-	for inc := uint(1); inc < bucket.Count()+1; inc++ {
-		model, _ := bucket.Get(inc)
-		if model == nil {
-			continue
+	bucket.Objects = base.NewManager(bucket)
+	db.buckets.Store(name, bucket)
+	now := uint(0)
+	count := bucket.Count()
+	bucket.Objects.Broadcast(func() any {
+		now++
+		if now == count {
+			return nil
 		}
-		if bucket.Objects.maxId < inc {
-			bucket.Objects.maxId = inc
-		}
-		if bucket.Objects.minId > inc || bucket.Objects.minId == 0 {
-			bucket.Objects.minId = inc
-		}
-		bucket.Objects.objects[inc] = model
-	}
+		return now
+	})
+
 	return bucket, nil
 }
 
 // ExistsBucket returns true if bucket exists.
 func (db *DataBase) ExistsTable(name string) bool {
-	if db.buckets[name] != nil {
+	if _, ok := db.buckets.LoadOK(name); ok {
 		return true
 	}
 	var exists bool

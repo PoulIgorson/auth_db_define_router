@@ -16,5 +16,5 @@ func OpenPocketBase(address, identity, password string) (*pocketbase.DataBase, e
 
 func OpenPocketBaseLocal(identity, password string) (*pocketbase.DataBase, error) {
 	app := pocketbase.NewLocal(identity, password)
-	return pocketbase.OpenWith(app, map[string]*pocketbase.Bucket{}), nil
+	return pocketbase.OpenWith(app), nil
 }
