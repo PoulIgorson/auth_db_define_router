@@ -1,13 +1,13 @@
 package interfaces
 
 import (
-	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
+	"time"
 )
 
 type DB interface {
-	Close() Error
+	Close() error
 
-	Table(name string, model Model) (Table, Error)
+	Table(name string, model Model) (Table, error)
 	ExistsTable(name string) bool
 	TableFromCache(name string) Table
 	TableOfModel(model Model) Table
@@ -18,11 +18,11 @@ type Table interface {
 	DB() DB
 	Model() Model
 
-	Get(id any) (Model, Error)
-	Save(model Model) Error
-	Delete(id any) Error
+	Get(id any) (Model, error)
+	Save(model Model) error
+	Delete(id any) error
 
-	DeleteAll() Error
+	DeleteAll() error
 	Count() uint
 	Manager() ManagerI
 	SetManager(ManagerI)
@@ -56,4 +56,17 @@ type ManagerI interface {
 	Count() uint
 	First() Model
 	Last() Model
+}
+
+// Pocketbase return time in `2006-01-02 15:04:05Z` format.
+// And package time parsing in `2006-01-02T15:04:05Z07:00` format.
+type PBTime time.Time
+
+func (pbt *PBTime) Unmarshal(data []byte) error {
+	t, err := time.Parse("2006-01-02 15:04:05Z", string(data))
+	if err != nil {
+		return err
+	}
+	*pbt = PBTime(t)
+	return nil
 }

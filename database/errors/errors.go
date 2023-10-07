@@ -16,19 +16,19 @@ type CustomError struct{ msg string }
 
 // ErrValueNotAvaiable is error about trying to use not avaiable value
 type ErrValueNotAvaiable struct {
-	key uint
+	key any
 }
 
 type ErrNilBucket struct{}
 
 // ErrValueDelete is error about trying to use deleting value
 type ErrValueDelete struct {
-	key uint
+	key any
 }
 
 // ErrOutOfRange is error about out of range
 type ErrOutOfRange struct {
-	index uint
+	index any
 }
 
 // New functions creating error
@@ -51,12 +51,12 @@ func NewCustomError(msg string) CustomError {
 }
 
 // NewErrValueDelete create ErrValueDelete
-func NewErrValueDelete(key uint) ErrValueDelete {
+func NewErrValueDelete(key any) ErrValueDelete {
 	return ErrValueDelete{key}
 }
 
 // NewErrValueNotAvaiable create ErrValueNotAvaiable
-func NewErrValueNotAvaiable(key uint) ErrValueNotAvaiable {
+func NewErrValueNotAvaiable(key any) ErrValueNotAvaiable {
 	return ErrValueNotAvaiable{key}
 }
 

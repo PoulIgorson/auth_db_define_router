@@ -1,6 +1,8 @@
 package base
 
-import "strings"
+import (
+	"strings"
+)
 
 func getOffset(key string) int {
 	if len(key) < 2 {
@@ -9,7 +11,10 @@ func getOffset(key string) int {
 	if strings.Contains("!<=>", string(key[len(key)-2])) {
 		return 2
 	}
-	return 1
+	if strings.Contains("<=>", string(key[len(key)-1])) {
+		return 1
+	}
+	return 0
 }
 
 func checkKey(key string, compareRes int) bool {

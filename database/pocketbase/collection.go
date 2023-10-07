@@ -2,9 +2,12 @@ package pocketbase
 
 import (
 	"encoding/json"
+	"reflect"
 
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
+	. "github.com/PoulIgorson/sub_engine_fiber/define"
+	. "github.com/PoulIgorson/sub_engine_fiber/log"
 )
 
 type Collection struct {
@@ -27,7 +30,7 @@ func (collection *Collection) Model() Model {
 	return collection.model
 }
 
-func (collection *Collection) Get(idI any) (Model, Error) {
+func (collection *Collection) Get(idI any) (Model, error) {
 	id, ok := idI.(string)
 	if !ok {
 		return nil, NewErrorf("pb: id must be string")
@@ -45,16 +48,29 @@ func (collection *Collection) Get(idI any) (Model, Error) {
 	return model, nil
 }
 
-func (collection *Collection) Save(model Model) Error {
+func (collection *Collection) Save(model Model) error {
 	dataByte, _ := json.Marshal(model)
 	data := map[string]any{}
 	json.Unmarshal(dataByte, &data)
 	form := NewForm(collection.db.pb, NewRecord(collection.name, collection.db.pb))
 	form.LoadData(data)
-	return ToError(form.Submit())
+	id, err := form.Submit()
+	if err != nil {
+		return ToError(err)
+	}
+
+	field_id, err := Check(model, "ID")
+	if err != nil {
+		return NewErrorf("pb: " + err.Error())
+	}
+	field_id.Set(reflect.ValueOf(id))
+	if collection.Objects.IsInstance() {
+		collection.Objects.Store(model.Id(), model)
+	}
+	return nil
 }
 
-func (collection *Collection) Delete(idI any) Error {
+func (collection *Collection) Delete(idI any) error {
 	id, ok := idI.(string)
 	if !ok {
 		return NewErrorf("pb: id must be string")
@@ -62,8 +78,14 @@ func (collection *Collection) Delete(idI any) Error {
 	return ToError(collection.db.pb.Delete(collection.name, id))
 }
 
-func (bucket *Collection) DeleteAll() Error {
-	return NewErrorf("pocketbase does not support DeleteAll")
+// Pocketbase does not support DeleteAll
+// All models will be deletting of one
+func (collection *Collection) DeleteAll() error {
+	LogInfo.Println("pocketbase does not support DeleteAll\nAll models will be deletting of one")
+	for _, model := range collection.Objects.All() {
+		model.Delete(collection.db)
+	}
+	return nil
 }
 
 func (collection *Collection) Count() uint {

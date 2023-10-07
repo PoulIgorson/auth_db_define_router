@@ -2,7 +2,6 @@ package pocketbase
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/PoulIgorson/sub_engine_fiber/database/base"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
@@ -22,11 +21,10 @@ func ManagerFilter(manager ManagerI, include Params, _ ...Params) []Model {
 func ManagerAll(manager ManagerI) []Model {
 	objects := []Model{}
 	if manager.IsInstance() {
+		oldAll := manager.(*base.Manager).OnAll
 		manager.(*base.Manager).OnAll = nil
-		defer func() {
-			manager.(*base.Manager).OnAll = ManagerAll
-		}()
 		objects = manager.All()
+		manager.(*base.Manager).OnAll = oldAll
 	} else {
 		records, _ := manager.Table().DB().(*DataBase).pb.Filter(manager.Table().Name(), map[string]any{})
 		for _, record := range records {
@@ -46,7 +44,6 @@ func nameFieldsToJSONTags(model Model, params Params) Params {
 	tagParams := Params{}
 	for nameField, value := range params {
 		tag := GetTagField(model, nameField, "json")
-		fmt.Println(nameField, tag)
 		if tag != "" {
 			tagParams[tag] = value
 		} else {

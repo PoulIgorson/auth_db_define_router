@@ -35,7 +35,7 @@ func (m *bucketMap) LoadOK(key string) (*Bucket, bool) {
 // DataBase implements interface access to bbolt db.
 type DataBase struct {
 	boltDB  *bolt.DB
-	buckets bucketMap
+	buckets bucketMap // map[string]Table
 }
 
 func (db *DataBase) BoltDB() *bolt.DB {
@@ -44,7 +44,7 @@ func (db *DataBase) BoltDB() *bolt.DB {
 
 // Open return pointer to DataBase,
 // If DataBase does not exist then error.
-func Open(path string) (*DataBase, Error) {
+func Open(path string) (*DataBase, error) {
 	db, err := bolt.Open(path, 0666, nil)
 	if err != nil {
 		return nil, NewErrorf(err.Error())
@@ -53,7 +53,7 @@ func Open(path string) (*DataBase, Error) {
 }
 
 // Close implements access to close DataBase.
-func (db *DataBase) Close() Error {
+func (db *DataBase) Close() error {
 	db.buckets = bucketMap{}
 	err := db.boltDB.Close()
 	if err == nil {
@@ -107,7 +107,7 @@ func (db *DataBase) TableOfModel(model Model) Table {
 // Table returns pointer to Bucket in db,
 // Returns error if name is too long.
 // name is not required
-func (db *DataBase) Table(_ string, model Model) (Table, Error) {
+func (db *DataBase) Table(_ string, model Model) (Table, error) {
 	name := GetNameBucket(model)
 	if bucket := db.buckets.Load(name); bucket != nil {
 		return bucket, nil
@@ -134,12 +134,11 @@ func (db *DataBase) Table(_ string, model Model) (Table, Error) {
 	count := bucket.Count()
 	bucket.Objects.Broadcast(func() any {
 		now++
-		if now == count {
+		if now >= count {
 			return nil
 		}
 		return now
 	})
-
 	return bucket, nil
 }
 

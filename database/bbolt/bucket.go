@@ -8,13 +8,24 @@ import (
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
-
-	"github.com/PoulIgorson/sub_engine_fiber/logs"
+	. "github.com/PoulIgorson/sub_engine_fiber/log"
 
 	bolt "go.etcd.io/bbolt"
 )
 
-const DELETE = "DELETE"
+const _DELETE = "DELETE"
+
+func checkId(idI any) (uint, error) {
+	id, ok := idI.(uint)
+	if !ok {
+		keyF, ok := idI.(float64)
+		if !ok {
+			return 0, NewErrorf("bbolt: key must be uint")
+		}
+		id = uint(int(keyF))
+	}
+	return id, nil
+}
 
 // Bucket implements interface simple access to read/write in bbolt db.
 type Bucket struct {
@@ -63,17 +74,13 @@ func (bucket *Bucket) Count() uint {
 }
 
 // Get implements getting value of key in bucket.
-func (bucket *Bucket) Get(keyI any) (Model, Error) {
-	key, ok := keyI.(uint)
-	if !ok {
-		keyF, ok := keyI.(float64)
-		if !ok {
-			return nil, NewErrorf("bbolt: key must be uint")
-		}
-		key = uint(int(keyF))
+func (bucket *Bucket) Get(keyI any) (Model, error) {
+	key, err := checkId(keyI)
+	if err != nil {
+		return nil, err
 	}
 	var value string
-	err := bucket.db.boltDB.View(func(tx *bolt.Tx) error {
+	err = bucket.db.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
 		value = string(bucket.Get([]byte(fmt.Sprint(key))))
 		if value == "" {
@@ -81,7 +88,7 @@ func (bucket *Bucket) Get(keyI any) (Model, Error) {
 		}
 		return nil
 	})
-	if value == DELETE {
+	if value == _DELETE {
 		err = NewErrValueDelete(key)
 	}
 	if err != nil {
@@ -91,43 +98,39 @@ func (bucket *Bucket) Get(keyI any) (Model, Error) {
 }
 
 // Set implements setting value of key in bucket.
-func (bucket *Bucket) set(keyI any, value string) Error {
-	key, ok := keyI.(uint)
-	if !ok {
-		keyF, ok := keyI.(float64)
-		if !ok {
-			return NewErrorf("bbolt: key must be uint")
-		}
-		key = uint(int(keyF))
+func (bucket *Bucket) set(keyI any, value string) error {
+	key, err := checkId(keyI)
+	if err != nil {
+		return err
 	}
-	if _, err := bucket.Get(key); err != nil && err.Name() == NewErrValueDelete(0).Name() {
+	if _, err := bucket.Get(key); err != nil && err.(Error).Name() == NewErrValueDelete(0).Name() {
 		return NewErrorf("bbolt: Bucket.Set: %v", err.Error())
 	}
-	err := bucket.db.boltDB.Update(func(tx *bolt.Tx) error {
+	err = bucket.db.boltDB.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucket.name))
-		if value == DELETE {
+		if value == _DELETE {
 			return bucket.Delete([]byte(fmt.Sprint(key)))
 		}
 		return bucket.Put([]byte(fmt.Sprint(key)), []byte(value))
 	})
 	if err != nil {
-		logs.Error("bbolt: Bucket.Set: Error of saving bucket `%v`: %v", bucket.Name(), err.Error())
+		LogError.Printf("bbolt: Bucket.Set: Error of saving bucket `%v`: %v\n", bucket.Name(), err.Error())
 	}
 	return nil
 }
 
 // Delete implements Deleting value of key in bucket.
-func (bucket *Bucket) Delete(keyI any) Error {
-	key, ok := keyI.(uint)
-	if !ok {
-		return NewErrorf("bbolt: key must be uint")
+func (bucket *Bucket) Delete(keyI any) error {
+	key, err := checkId(keyI)
+	if err != nil {
+		return err
 	}
 	bucket.Objects.ClearId(key)
-	return bucket.set(key, DELETE)
+	return bucket.set(key, _DELETE)
 }
 
 // DeleteAll implements Deleting all values in bucket.
-func (bucket *Bucket) DeleteAll() Error {
+func (bucket *Bucket) DeleteAll() error {
 	err := bucket.db.BoltDB().Update(func(tx *bolt.Tx) error {
 		if err := tx.DeleteBucket([]byte(bucket.name)); err != nil {
 			return err
@@ -142,19 +145,20 @@ func (bucket *Bucket) DeleteAll() Error {
 	return nil
 }
 
-func (bucket *Bucket) Save(model Model) Error {
+func (bucket *Bucket) Save(model Model) error {
 	field_id, err := Check(model, "ID")
 	if err != nil {
 		return NewErrorf("bbolt: " + err.Error())
 	}
-	idUint, ok := model.Id().(uint)
-	if !ok && GetNameBucket(model) == "user" {
+	idUint, err := checkId(model.Id())
+	if err != nil {
+		if GetNameBucket(model) != "user" {
+			return err
+		}
 		field_id.Set(reflect.ValueOf(uint(0)))
-		idUint, ok = uint(0), true
+		idUint, err = 0, nil
 	}
-	if !ok {
-		return NewErrorf("bbolt: key must be uint")
-	}
+
 	if idUint == 0 {
 		next_id := bucket.Count() + 1
 		field_id.Set(reflect.ValueOf(uint(next_id)))

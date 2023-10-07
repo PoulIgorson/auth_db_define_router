@@ -15,6 +15,9 @@
 *.db
 pb_data/
 
+# logs
+*.log
+
 # Test binary, built with `go test -c`
 *.test
 

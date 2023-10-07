@@ -28,7 +28,7 @@ func (m *modelMap) LoadOK(id any) (Model, bool) {
 	return v.(Model), true
 }
 
-func (m *modelMap) Range(fn func(id any, model Model) bool) {
+func (m *modelMap) Range(fn func(id any, model Model) (continue_ bool)) {
 	m.Map.Range(func(idI any, modelI any) bool {
 		return fn(idI, modelI.(Model))
 	})
@@ -38,15 +38,14 @@ type Manager struct {
 	isInstance bool
 	table      Table
 
-	objects modelMap
+	objects modelMap // map[uint]Model
 	minId   any
 	maxId   any
 
-	UseCache    bool
-	OnClear     func(ManagerI)
-	OnBroadcast func(ManagerI, Nexter)
-	OnAll       func(ManagerI) []Model
-	OnFilter    func(manager ManagerI, include Params, exclude ...Params) []Model
+	UseCache bool
+	OnCount  func(ManagerI) uint
+	OnAll    func(ManagerI) []Model
+	OnFilter func(manager ManagerI, include Params, exclude ...Params) []Model
 }
 
 func NewManager(table Table) *Manager {
@@ -64,10 +63,6 @@ func (manager *Manager) Table() Table {
 }
 
 func (manager *Manager) Clear() {
-	if manager.OnClear != nil {
-		manager.OnClear(manager)
-		return
-	}
 	manager.objects = modelMap{}
 	manager.minId = nil
 	manager.maxId = nil
@@ -82,20 +77,20 @@ func (manager *Manager) Copy() ManagerI {
 		minId:   manager.minId,
 		maxId:   manager.maxId,
 
-		UseCache:    manager.UseCache,
-		OnClear:     manager.OnClear,
-		OnBroadcast: manager.OnBroadcast,
-		OnAll:       manager.OnAll,
-		OnFilter:    manager.OnFilter,
+		UseCache: manager.UseCache,
+		OnCount:  manager.OnCount,
+		OnAll:    manager.OnAll,
+		OnFilter: manager.OnFilter,
 	}
 }
 
 func (manager *Manager) Get(id any) Model {
 	if manager.UseCache || manager.isInstance {
-		m := manager.objects.Load(id)
-		if m != nil {
-			manager.CheckPointers(m)
-			return m
+		model := manager.objects.Load(id)
+		if model != nil {
+			manager.Store(model.Id(), model)
+			manager.CheckPointers(model)
+			return model
 		}
 	}
 
@@ -105,45 +100,55 @@ func (manager *Manager) Get(id any) Model {
 		return nil
 	}
 
-	manager.objects.Store(id, model)
-	if Compare(manager.maxId, id) == -1 || manager.maxId == nil {
-		manager.maxId = id
-	}
-	if Compare(id, manager.minId) == -1 || manager.minId == nil {
-		manager.minId = id
-	}
+	manager.Store(model.Id(), model)
 	return model
 }
 
 func (manager *Manager) Delete(id any) {
 	manager.table.Delete(id)
+	manager.ClearId(id)
 }
 
 func (manager *Manager) Store(id any, model Model) {
+	if id == nil || model == nil {
+		return
+	}
 	manager.objects.Store(id, model)
+	manager.compareAndSetMinMaxId(id)
+}
+
+func (manager *Manager) compareAndSetMinMaxId(id any, setNil ...bool) {
+	if len(setNil) > 0 && setNil[0] {
+		if Compare(manager.maxId, id) == 0 {
+			manager.maxId = nil
+		}
+		if Compare(id, manager.minId) == 0 {
+			manager.minId = nil
+		}
+		return
+	}
+	if manager.maxId == nil || Compare(manager.maxId, id) == -1 {
+		manager.maxId = id
+	}
+	if manager.minId == nil || Compare(id, manager.minId) == -1 {
+		manager.minId = id
+	}
 }
 
 func (manager *Manager) ClearId(id any) {
 	manager.objects.Delete(id)
+	manager.compareAndSetMinMaxId(id, true)
 }
 
 func (manager *Manager) Broadcast(next Nexter) {
-	if manager.OnBroadcast != nil {
-		manager.OnBroadcast(manager, next)
+	if next == nil {
 		return
 	}
-	for id := next(); id != nil; {
+	id := next()
+	for id != nil {
 		model, _ := manager.table.Get(id)
-		if model == nil {
-			continue
-		}
-		if Compare(manager.maxId, id) == -1 || manager.maxId == nil {
-			manager.maxId = id
-		}
-		if Compare(id, manager.minId) == -1 || manager.minId == nil {
-			manager.minId = id
-		}
-		manager.objects.Store(id, model)
+		manager.Store(id, model)
+		id = next()
 	}
 }
 
@@ -151,31 +156,22 @@ func (manager *Manager) CheckModel(model Model, include Params, exclude ...Param
 	if model == nil {
 		return false
 	}
-	for key, value := range include {
-		mvalue, err := Check(model, key[len(key)-getOffset(key):])
-		if err != nil {
-			continue
-		}
-
-		r := Compare(mvalue.Interface(), value)
-		if !checkKey(key, r) {
-			return false
-		}
-	}
-	if len(exclude) > 0 {
-		for key, value := range exclude[0] {
-			mvalue, err := Check(model, key[len(key)-getOffset(key):])
+	check := func(params Params, invert bool) bool {
+		for key, value := range params {
+			mvalue, err := Check(model, key[:len(key)-getOffset(key)])
 			if err != nil {
 				continue
 			}
 
 			r := Compare(mvalue.Interface(), value)
-			if checkKey(key, r) {
+			if checkKey(key, r) == invert {
 				return false
 			}
 		}
+		return true
 	}
-	return true
+
+	return check(include, false) && (len(exclude) == 0 || check(exclude[0], true))
 }
 
 func (manager *Manager) All() []Model {
@@ -186,55 +182,38 @@ func (manager *Manager) All() []Model {
 	manager.objects.Range(func(id any, model Model) bool {
 		manager.CheckPointers(model)
 		objects = append(objects, model)
-		return false
+		return true
 	})
 	return objects
 }
 
 func (manager *Manager) Filter(include Params, exclude ...Params) ManagerI {
-	var newObjects modelMap
-	var maxId, minId any
+	newManager := &Manager{
+		isInstance: true,
+		table:      manager.table,
+
+		UseCache: manager.UseCache,
+		OnCount:  manager.OnCount,
+		OnAll:    manager.OnAll,
+		OnFilter: manager.OnFilter,
+	}
+
 	if manager.OnFilter != nil {
 		models := manager.OnFilter(manager, include, exclude...)
 		for _, model := range models {
-			newObjects.Store(model.Id(), model)
-			if Compare(maxId, model.Id()) == -1 || maxId == nil {
-				maxId = model.Id()
-			}
-			if Compare(model.Id(), minId) == -1 || minId == nil {
-				minId = model.Id()
-			}
+			newManager.Store(model.Id(), model)
 		}
 	} else {
 		manager.objects.Range(func(id any, model Model) bool {
 			manager.CheckPointers(model)
 			if manager.CheckModel(model, include, exclude...) {
-				newObjects.Store(id, model)
-				if Compare(maxId, id) == -1 || maxId == nil {
-					maxId = id
-				}
-				if Compare(id, minId) == -1 || minId == nil {
-					minId = id
-				}
+				newManager.Store(model.Id(), model)
 			}
-			return false
+			return true
 		})
 	}
 
-	return &Manager{
-		isInstance: true,
-		table:      manager.table,
-
-		objects: newObjects,
-		maxId:   maxId,
-		minId:   minId,
-
-		UseCache:    manager.UseCache,
-		OnClear:     manager.OnClear,
-		OnBroadcast: manager.OnBroadcast,
-		OnAll:       manager.OnAll,
-		OnFilter:    manager.OnFilter,
-	}
+	return newManager
 }
 
 func (manager *Manager) First() Model {
@@ -256,6 +235,9 @@ func (manager *Manager) Last() Model {
 }
 
 func (manager *Manager) Count() uint {
+	if manager.OnCount != nil {
+		return manager.OnCount(manager)
+	}
 	return uint(len(manager.All()))
 }
 

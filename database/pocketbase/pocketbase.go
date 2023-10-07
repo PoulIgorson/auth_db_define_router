@@ -13,10 +13,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	pocketbase "github.com/pocketbase/pocketbase"
 
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
+	. "github.com/PoulIgorson/sub_engine_fiber/log"
 )
 
 // Pocketbase структура с данными авторизации для pb
@@ -25,6 +27,14 @@ type PocketBase struct {
 	address  string
 	identity string
 	password string
+}
+
+func (app *PocketBase) Local() bool {
+	return app.local
+}
+
+func (app *PocketBase) Address() string {
+	return app.address
 }
 
 // New возвращает экземпляр *Pocketbase с адресом `address`, индификатором `identity` и паролем `password`
@@ -45,7 +55,9 @@ func NewLocal(identity, password string, port ...string) *PocketBase {
 	} else {
 		address += ":8090"
 	}
-	return &PocketBase{true, address, identity, password}
+	app := &PocketBase{true, address, identity, password}
+	time.Sleep(5 * time.Second)
+	return app
 }
 
 // Record структура записи в pb
@@ -112,11 +124,11 @@ func (form *Form) AddFiles(field string, path ...string) {
 }
 
 // Form.Submit записывает изменения в pb
-func (form *Form) Submit() error {
+func (form *Form) Submit() (string, error) {
 	token, err := form.app.getToken()
 	if err != nil {
-		fmt.Printf("pocketbase.Submit.token.error: %v\n", err)
-		return err
+		LogError.Printf("pocketbase.Submit.token.error: %v\n", err)
+		return "", fmt.Errorf("pb.Form.Submit.token: %v", err.Error())
 	}
 
 	body := &bytes.Buffer{}
@@ -134,7 +146,7 @@ func (form *Form) Submit() error {
 		for _, path := range paths {
 			file, err := os.Open(path)
 			if err != nil {
-				fmt.Printf("pocketbase.Submit.path: %v: error: %v\n", path, err)
+				LogError.Printf("pocketbase.Submit.path: %v: error: %v\n", path, err)
 				continue
 			}
 			defer file.Close()
@@ -158,18 +170,20 @@ func (form *Form) Submit() error {
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		fmt.Println("pocketbase.Submit.getResponse.error:", err)
-		fmt.Println("pocketbase.Submit.getResponse.body:", response.Body)
-		return err
+		LogError.Println("pocketbase.Submit.getResponse.error:", err)
+		LogError.Println("pocketbase.Submit.getResponse.body:", response.Body)
+		return "", err
 	}
 	responseBody, _ := io.ReadAll(response.Body)
-	var resp any
+	var resp struct {
+		Id string `json:"id"`
+	}
 	json.Unmarshal(responseBody, &resp)
 	if response.StatusCode != 200 && response.StatusCode != 204 {
-		fmt.Println("pocketbase.Submit.status-resp:", response.StatusCode, resp)
-		return fmt.Errorf("%v, %v", response.StatusCode, resp)
+		LogError.Println("pocketbase.Submit.status-resp:", response.StatusCode, resp)
+		return "", fmt.Errorf("%v, %v", response.StatusCode, resp)
 	}
-	return nil
+	return resp.Id, nil
 }
 
 // PocketBase.getToken возвращает токен для работы с защищенным api
@@ -184,8 +198,12 @@ func (pb *PocketBase) getToken() (string, error) {
 	headers := map[string]string{
 		"Content-Type": "application/json; charset=utf8",
 	}
+	collection := "collections/users"
+	if pb.local {
+		collection = "admins"
+	}
 	status, resp, err := GetJSONResponse(
-		"POST", fmt.Sprintf("%v/api/collections/users/auth-with-password", pb.address),
+		"POST", fmt.Sprintf("%v/api/%v/auth-with-password", pb.address, collection),
 		Headers(headers), Data(data),
 	)
 	if err != nil {
@@ -201,8 +219,8 @@ func (pb *PocketBase) getToken() (string, error) {
 func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, page ...uint) ([]*Record, error) {
 	token, err := pb.getToken()
 	if err != nil {
-		fmt.Println("pocketbase.Filter.token.error:", err)
-		return nil, err
+		LogError.Println("pocketbase.Filter.token.error:", err)
+		return nil, fmt.Errorf("pb.Filter.token: %v", err.Error())
 	}
 	headers := map[string]string{
 		"Content-Type":    "application/x-www-form-urlencoded",
@@ -231,14 +249,14 @@ func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, pag
 		Headers(headers), nil,
 	)
 	if err != nil {
-		fmt.Println("pocketbase.Filter.getResponse.error:", err)
+		LogError.Println("pocketbase.Filter.getResponse.error:", err)
 		return nil, err
 	}
 	if status == 204 {
 		return []*Record{}, nil
 	}
 	if status != 200 {
-		fmt.Println("pocketbase.Filter.getResponse:", status, respI)
+		LogError.Println("pocketbase.Filter.getResponse:", status, respI)
 		return nil, fmt.Errorf("%v, %v", status, respI)
 	}
 
@@ -257,8 +275,8 @@ func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, pag
 func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 	token, err := pb.getToken()
 	if err != nil {
-		fmt.Println("pocketbase.Filter.token.error:", err)
-		return err
+		LogError.Println("pocketbase.Filter.token.error:", err)
+		return fmt.Errorf("pb.Delete.token: %v", err.Error())
 	}
 	headers := Headers{
 		"Content-Type":    "application/x-www-form-urlencoded",
@@ -266,17 +284,17 @@ func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 		"Authorization":   token,
 	}
 	curl := fmt.Sprintf(`%v/api/collections/%v/records/%v`, pb.address, collectionNameOrId, id)
-	status, respI, err := GetResponse(
+	status, body, err := GetResponse(
 		"DELETE", curl,
 		headers, nil,
 	)
 	if err != nil {
-		fmt.Println("pocketbase.Filter.getResponse.error:", err)
+		LogError.Println("pocketbase.Filter.getResponse.error:", err)
 		return err
 	}
 	if status != 200 && status != 204 {
-		fmt.Println("pocketbase.Filter.getResponse:", status, respI)
-		return fmt.Errorf("%v, %v", status, respI)
+		LogError.Println("pocketbase.Filter.getResponse:", status, string(body))
+		return fmt.Errorf("%v, %v", status, string(body))
 	}
 	return nil
 }
@@ -287,8 +305,8 @@ func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName string) ([]byte, error) {
 	token, err := pb.getToken()
 	if err != nil {
-		fmt.Println("pocketbase.GetFileAsSliceByte.token.error:", err)
-		return nil, err
+		LogError.Println("pocketbase.GetFileAsSliceByte.token.error:", err)
+		return nil, fmt.Errorf("pb.GetFileAsSliceByte.token: %v", err.Error())
 	}
 	curl := fmt.Sprintf("http://%v/api/files/%v/%v/%v", pb.address, collentionNameOrId, recordId, fileName)
 	req, _ := http.NewRequest("GET", curl, nil)
@@ -296,7 +314,7 @@ func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName 
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		fmt.Println("pocketbase.GetFileAsSliceByte.response.error:", err)
+		LogError.Println("pocketbase.GetFileAsSliceByte.response.error:", err)
 		return nil, err
 	}
 	body, _ := io.ReadAll(response.Body)
@@ -304,8 +322,43 @@ func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName 
 		return []byte{}, nil
 	}
 	if response.StatusCode != 200 {
-		fmt.Printf("pocketbase.GetFileAsSliceByte.response: status: %v, body: %v\n", response.StatusCode, fmt.Errorf("%v", body))
+		LogError.Printf("pocketbase.GetFileAsSliceByte.response: status: %v, body: %v\n", response.StatusCode, fmt.Errorf("%v", body))
 		return nil, fmt.Errorf("%v", body)
 	}
 	return body, nil
+}
+
+func (pb *PocketBase) doCollection(method, curl string, data map[string]any) error {
+	token, err := pb.getToken()
+	if err != nil {
+		LogError.Println("pocketbase.doCollection.token:", err)
+		return fmt.Errorf("pocketbase.doCollection.token: %v", err)
+	}
+	headers := Headers{
+		"Content-Type":    "application/json",
+		"Accept-Encoding": "identity",
+		"Authorization":   token,
+	}
+
+	status, body, err := GetResponse(
+		method, curl,
+		headers, data,
+	)
+	if err != nil {
+		LogError.Println("pocketbase.doCollection.getResponse.error:", err)
+		return fmt.Errorf("getResponse.error: %v", err)
+	}
+	if status != 200 && status != 204 {
+		LogError.Println("pocketbase.doCollection.getResponse:", status, string(body))
+		return fmt.Errorf("getResponse: %v, %v", status, string(body))
+	}
+	return nil
+}
+
+func (pb *PocketBase) CreateCollection(data map[string]any) error {
+	return pb.doCollection("POST", fmt.Sprintf(`%v/api/collections`, pb.address), data)
+}
+
+func (pb *PocketBase) UpdateCollection(data map[string]any) error {
+	return pb.doCollection("PATCH", fmt.Sprintf(`%v/api/collections/%v`, pb.address, data["name"]), data)
 }

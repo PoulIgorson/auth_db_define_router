@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/PoulIgorson/sub_engine_fiber/log"
 	"golang.org/x/exp/constraints"
 )
 
@@ -250,7 +251,7 @@ func GetImagesFromRequestBody(body []byte, key ...string) ([]image.Image, []stri
 		format := imgData[strings.Index(imgData, ":")+1 : strings.Index(imgData, ";")]
 		img, err := GetDecodeFunc(format)(res)
 		if err != nil {
-			fmt.Println("GetImagesFromRequestBody: decode:", err.Error())
+			LogError.Println("GetImagesFromRequestBody: decode:", err.Error())
 			continue
 		}
 		images = append(images, img)
@@ -425,6 +426,9 @@ func GetJSONResponse(method, curl string, headers Headers, data Data) (int, any,
 	}
 	var response any
 	if err := json.Unmarshal(body, &response); err != nil {
+		if len(body) == 0 {
+			return 500, nil, fmt.Errorf("GetJSONResponse: body is empty")
+		}
 		if err1 := json.Unmarshal([]byte(string(body)[3:]), &response); err1 != nil {
 			return 500, nil, fmt.Errorf("GetJSONResponse: unmarshal response:\n error: %v\n body: %v", err1, string(body))
 		}
