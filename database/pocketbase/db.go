@@ -180,7 +180,9 @@ func (db *DataBase) Table(name string, model Model) (Table, error) {
 	}
 
 	if err := db.CreateCollection(name, model); err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "The request requires valid admin authorization token to be set.") {
+			return nil, err
+		}
 	}
 
 	if _, ok := model.Id().(string); !ok && name != "user" {
