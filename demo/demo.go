@@ -1,7 +1,6 @@
 package demo
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"time"
@@ -25,8 +24,8 @@ func (car Car) Id() any {
 
 func (Car) Create(db_ DB, carStr string) Model {
 	car := &Car{}
-	err := json.Unmarshal([]byte(carStr), car)
-	fmt.Println(car.ID, err)
+	//json.Unmarshal([]byte(carStr), car)
+	JSONParse([]byte(carStr), car)
 	return car
 }
 
@@ -74,7 +73,8 @@ func showCars(cars []Model) {
 
 func Run() {
 	fmt.Println("opening database")
-	db_, err := db.OpenPocketBaseLocal("backend@mail.com", "backendbackend", false) // admin login/password
+	db_, err := db.OpenPocketBase("http://localhost:8090", "backend@mail.com", "backendbackend", true, true)
+	//db_, err := db.OpenPocketBaseLocal("backend@mail.com", "backendbackend", true)
 	//db_, err := db.OpenBbolt("sub_engine_fiber_db.db")
 	if err != nil {
 		panic("db: " + err.Error())

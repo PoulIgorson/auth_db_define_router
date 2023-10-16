@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"strings"
 
 	bbolt "github.com/PoulIgorson/sub_engine_fiber/database/bbolt"
@@ -14,17 +15,23 @@ func OpenBbolt(path string) (*bbolt.DataBase, error) {
 	return db, err
 }
 
-func OpenPocketBase(address, identity, password string) (*pocketbase.DataBase, error) {
-	return pocketbase.Open(address, identity, password), nil
+func OpenPocketBase(address, identity, password string, isAdmin bool, updateCollections ...bool) (*pocketbase.DataBase, error) {
+	fmt.Println("remote")
+	return pocketbase.Open(address, identity, password, isAdmin, updateCollections...), nil
 }
 
-// Failed to authenticate if not valid data
-func OpenPocketBaseLocal(email, password string, createAdmin ...bool) (*pocketbase.DataBase, error) {
-	app := pocketbase.NewLocal(email, password)
+// Error if not valid data to authenticate
+func OpenPocketBaseLocal(email, password string, isAdmin ...bool) (*pocketbase.DataBase, error) {
+	fmt.Println("local")
+	isAdmin_ := false
+	if len(isAdmin) > 0 {
+		isAdmin_ = isAdmin[0]
+	}
+	app := pocketbase.NewLocal(email, password, isAdmin_)
 	if app == nil {
 		return nil, NewErrorf("pocketbase not opened")
 	}
-	if len(createAdmin) > 0 && createAdmin[0] {
+	if isAdmin_ {
 		_, err := app.Filter("users", nil)
 		if err != nil && strings.Contains(err.Error(), ".token:") {
 			if strings.Contains(err.Error(), "refused") {

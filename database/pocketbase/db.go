@@ -44,10 +44,8 @@ type DataBase struct {
 	collections collectionMap // map[string]Table
 }
 
-func Open(address, identity, password string) *DataBase {
-	return &DataBase{
-		pb: New(address, identity, password),
-	}
+func Open(address, identity, password string, isAdmin bool, updateCollections ...bool) *DataBase {
+	return OpenWith(New(address, identity, password, isAdmin, updateCollections...))
 }
 
 func OpenWith(pb *PocketBase) *DataBase {
@@ -125,9 +123,15 @@ func getPBField(fieldT reflect.StructField, modelV reflect.Value) map[string]any
 		valueI := modelV.Interface()
 		if _, ok := valueI.(time.Time); ok {
 			data["type"] = "date"
-		} else if _, ok := valueI.(*url.URL); ok {
-			data["type"] = "url"
+		} else if _, ok := valueI.(*time.Time); ok {
+			data["type"] = "date"
+		} else if modelV.Type().ConvertibleTo(reflect.TypeOf(PBTime{})) {
+			data["type"] = "date"
+		} else if modelV.Type().ConvertibleTo(reflect.TypeOf(&PBTime{})) {
+			data["type"] = "date"
 		} else if _, ok := valueI.(url.URL); ok {
+			data["type"] = "url"
+		} else if _, ok := valueI.(*url.URL); ok {
 			data["type"] = "url"
 		} else {
 			data["type"] = "json"

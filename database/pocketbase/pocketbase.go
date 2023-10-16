@@ -23,10 +23,16 @@ import (
 
 // Pocketbase структура с данными авторизации для pb
 type PocketBase struct {
-	local    bool
-	address  string
-	identity string
-	password string
+	local             bool
+	address           string
+	identity          string
+	password          string
+	isAdmin           bool
+	updateCollections bool
+}
+
+func (app *PocketBase) IsAdmin() bool {
+	return app.isAdmin
 }
 
 func (app *PocketBase) Local() bool {
@@ -40,11 +46,15 @@ func (app *PocketBase) Address() string {
 // New возвращает экземпляр *Pocketbase с адресом `address`, индификатором `identity` и паролем `password`
 //
 // address in format - http(s)://127.0.0.1(:8090)
-func New(address, identity, password string) *PocketBase {
-	return &PocketBase{false, address, identity, password}
+func New(address, identity, password string, isAdmin bool, updateCollections ...bool) *PocketBase {
+	update := false
+	if len(updateCollections) > 0 {
+		update = updateCollections[0]
+	}
+	return &PocketBase{false, address, identity, password, isAdmin, update}
 }
 
-func NewLocal(identity, password string, port ...string) *PocketBase {
+func NewLocal(identity, password string, isAdmin bool, port ...string) *PocketBase {
 	go pocketbase.New().Start()
 	address := "http://127.0.0.1"
 	if len(port) > 0 {
@@ -55,7 +65,7 @@ func NewLocal(identity, password string, port ...string) *PocketBase {
 	} else {
 		address += ":8090"
 	}
-	app := &PocketBase{true, address, identity, password}
+	app := &PocketBase{true, address, identity, password, isAdmin, true}
 	time.Sleep(5 * time.Second)
 	return app
 }
@@ -199,7 +209,7 @@ func (pb *PocketBase) getToken() (string, error) {
 		"Content-Type": "application/json; charset=utf8",
 	}
 	collection := "collections/users"
-	if pb.local {
+	if pb.isAdmin {
 		collection = "admins"
 	}
 	status, resp, err := GetJSONResponse(
@@ -300,8 +310,6 @@ func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 }
 
 // PocketBase.GetFileAsSliceByte возвращает список байтов файла из pb
-//
-// По id записи `recordId` в колекции `collentionNameOrId` и имени файла `fileName`
 func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName string) ([]byte, error) {
 	token, err := pb.getToken()
 	if err != nil {
@@ -356,9 +364,17 @@ func (pb *PocketBase) doCollection(method, curl string, data map[string]any) err
 }
 
 func (pb *PocketBase) CreateCollection(data map[string]any) error {
+	fmt.Println("create", pb)
+	if !pb.updateCollections {
+		return nil
+	}
 	return pb.doCollection("POST", fmt.Sprintf(`%v/api/collections`, pb.address), data)
 }
 
 func (pb *PocketBase) UpdateCollection(data map[string]any) error {
+	fmt.Println("update", pb)
+	if !pb.updateCollections {
+		return nil
+	}
 	return pb.doCollection("PATCH", fmt.Sprintf(`%v/api/collections/%v`, pb.address, data["name"]), data)
 }

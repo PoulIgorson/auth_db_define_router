@@ -18,6 +18,9 @@ pb_data/
 # logs
 *.log
 
+# local files
+hide.txt
+
 # Test binary, built with `go test -c`
 *.test
 
