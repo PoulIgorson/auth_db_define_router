@@ -55,6 +55,9 @@ func OpenWith(pb *PocketBase) *DataBase {
 		pb: pb,
 	}
 }
+func (db *DataBase) DB() *PocketBase {
+	return db.pb
+}
 
 func (db *DataBase) Close() error {
 	return nil
