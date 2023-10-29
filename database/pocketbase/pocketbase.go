@@ -250,6 +250,7 @@ func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, pag
 		}
 		filter += key + fmt.Sprint(value)
 	}
+	filter = strings.ReplaceAll(filter, "&", "%26")
 	curl := fmt.Sprintf(`%v/api/collections/%v/records?perPage=500&filter=%v`, pb.address, collectionNameOrId, filter)
 	if len(page) > 0 {
 		curl += "&page=" + fmt.Sprint(page[0])
