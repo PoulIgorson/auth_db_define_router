@@ -2,15 +2,17 @@
 package bbolt
 
 import (
-	"reflect"
 	"sync"
 
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/PoulIgorson/sub_engine_fiber/database/base"
+	. "github.com/PoulIgorson/sub_engine_fiber/database/define"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 )
+
+var _ DB = &DataBase{}
 
 type bucketMap struct {
 	sync.Map
@@ -63,34 +65,6 @@ func (db *DataBase) Close() error {
 	return NewErrorf(err.Error())
 }
 
-func GetNameBucket(model Model) string {
-	typeName := ""
-	if t := reflect.TypeOf(model); t.Kind() == reflect.Pointer {
-		typeName = t.Elem().Name()
-	} else {
-		typeName = t.Name()
-	}
-	var name []rune
-	for i, ch := range typeName {
-		if i == 0 {
-			if 'A' <= ch && ch <= 'Z' {
-				ch += 0x20
-			}
-			name = append(name, ch)
-			continue
-		}
-		if 'A' <= ch && ch <= 'Z' {
-			if typeName[i-1] != '_' {
-				name = append(name, '_')
-			}
-			name = append(name, ch+0x20)
-			continue
-		}
-		name = append(name, ch)
-	}
-	return string(name)
-}
-
 func (db *DataBase) TableFromCache(name string) Table {
 	bucket, ok := db.buckets.LoadOK(name)
 	if !ok || bucket == nil {
@@ -99,16 +73,11 @@ func (db *DataBase) TableFromCache(name string) Table {
 	return bucket
 }
 
-func (db *DataBase) TableOfModel(model Model) Table {
-	name := GetNameBucket(model)
-	return db.buckets.Load(name)
-}
-
 // Table returns pointer to Bucket in db,
 // Returns error if name is too long.
 // name is not required
 func (db *DataBase) Table(_ string, model Model) (Table, error) {
-	name := GetNameBucket(model)
+	name := GetNameModel(model)
 	if bucket := db.buckets.Load(name); bucket != nil {
 		return bucket, nil
 	}

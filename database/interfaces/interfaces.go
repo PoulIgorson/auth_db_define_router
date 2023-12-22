@@ -3,10 +3,9 @@ package interfaces
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"time"
-
-	. "github.com/PoulIgorson/sub_engine_fiber/log"
 )
 
 type DB interface {
@@ -15,7 +14,6 @@ type DB interface {
 	Table(name string, model Model) (Table, error)
 	ExistsTable(name string) bool
 	TableFromCache(name string) Table
-	TableOfModel(model Model) Table
 }
 
 type Table interface {
@@ -112,14 +110,20 @@ func JSONParse(data []byte, model Model) error {
 			if dataValue.Type().ConvertibleTo(fieldType) {
 				convertedValue := dataValue.Convert(fieldType)
 				fieldValue.Set(convertedValue)
-			} else if unmarshaler, ok := dataValue.Interface().(json.Unmarshaler); ok {
+			} else if unmarshaler, ok := fieldValue.Interface().(json.Unmarshaler); ok {
 				bytes, _ := json.Marshal(value)
 				unmarshaler.UnmarshalJSON(bytes)
-			} else if unmarshaler, ok := dataValue.Interface().(interface{ Unmarshal([]byte) error }); ok {
+			} else if unmarshaler, ok := fieldValue.Addr().Interface().(json.Unmarshaler); ok {
+				bytes, _ := json.Marshal(value)
+				unmarshaler.UnmarshalJSON(bytes)
+			} else if unmarshaler, ok := fieldValue.Interface().(interface{ Unmarshal([]byte) error }); ok {
+				bytes, _ := json.Marshal(value)
+				unmarshaler.Unmarshal(bytes)
+			} else if unmarshaler, ok := fieldValue.Addr().Interface().(interface{ Unmarshal([]byte) error }); ok {
 				bytes, _ := json.Marshal(value)
 				unmarshaler.Unmarshal(bytes)
 			} else {
-				LogError.Printf("%s: cannot assign value for field '%s'\n", modelT.Name(), field.Name)
+				log.Printf("%s: cannot assign value for field '%s': expected %v, got %v, %v\n", modelT.Name(), field.Name, fieldType, dataValue.Type(), fieldType)
 			}
 		}
 	}

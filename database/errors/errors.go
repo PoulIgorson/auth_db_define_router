@@ -14,8 +14,8 @@ type Error interface {
 // CustomError is custom error
 type CustomError struct{ msg string }
 
-// ErrValueNotAvaiable is error about trying to use not avaiable value
-type ErrValueNotAvaiable struct {
+// ErrValueNotAvaiable is error about trying to use not available value
+type ErrValueNotAvailable struct {
 	key any
 }
 
@@ -56,8 +56,8 @@ func NewErrValueDelete(key any) ErrValueDelete {
 }
 
 // NewErrValueNotAvaiable create ErrValueNotAvaiable
-func NewErrValueNotAvaiable(key any) ErrValueNotAvaiable {
-	return ErrValueNotAvaiable{key}
+func NewErrValueNotAvailable(key any) ErrValueNotAvailable {
+	return ErrValueNotAvailable{key}
 }
 
 // NewErrNilBucket create ErrNilBucket
@@ -83,8 +83,8 @@ func (err ErrValueDelete) Name() string {
 }
 
 // Name return "ErrValueNotAvaiable"
-func (err ErrValueNotAvaiable) Name() string {
-	return "ErrValueNotAvaiable"
+func (err ErrValueNotAvailable) Name() string {
+	return "ErrValueNotAvailable"
 }
 
 // Name return "ErrNilBucket"
@@ -110,7 +110,7 @@ func (err ErrValueDelete) Error() string {
 }
 
 // Error return string error
-func (err ErrValueNotAvaiable) Error() string {
+func (err ErrValueNotAvailable) Error() string {
 	return fmt.Sprintf("key `%v` is not available", err.key)
 }
 

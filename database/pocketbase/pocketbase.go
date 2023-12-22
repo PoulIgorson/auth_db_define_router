@@ -9,16 +9,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"strings"
-	"time"
-
-	pocketbase "github.com/pocketbase/pocketbase"
 
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
-	. "github.com/PoulIgorson/sub_engine_fiber/log"
 )
 
 // Pocketbase структура с данными авторизации для pb
@@ -51,23 +48,8 @@ func New(address, identity, password string, isAdmin bool, updateCollections ...
 	if len(updateCollections) > 0 {
 		update = updateCollections[0]
 	}
-	return &PocketBase{false, address, identity, password, isAdmin, update}
-}
-
-func NewLocal(identity, password string, isAdmin bool, port ...string) *PocketBase {
-	go pocketbase.New().Start()
-	address := "http://127.0.0.1"
-	if len(port) > 0 {
-		if len(port[0]) > 0 && port[0] != ":" {
-			address += ":"
-		}
-		address += port[0]
-	} else {
-		address += ":8090"
-	}
-	app := &PocketBase{true, address, identity, password, isAdmin, true}
-	time.Sleep(5 * time.Second)
-	return app
+	db := &PocketBase{false, address, identity, password, isAdmin, update}
+	return db
 }
 
 // Record структура записи в pb
@@ -137,7 +119,7 @@ func (form *Form) AddFiles(field string, path ...string) {
 func (form *Form) Submit() (string, error) {
 	token, err := form.app.getToken()
 	if err != nil {
-		LogError.Printf("pocketbase.Submit.token.error: %v\n", err)
+		log.Printf("pocketbase.Submit.token.error: %v\n", err)
 		return "", fmt.Errorf("pb.Form.Submit.token: %v", err.Error())
 	}
 
@@ -156,7 +138,7 @@ func (form *Form) Submit() (string, error) {
 		for _, path := range paths {
 			file, err := os.Open(path)
 			if err != nil {
-				LogError.Printf("pocketbase.Submit.path: %v: error: %v\n", path, err)
+				log.Printf("pocketbase.Submit.path: %v: error: %v\n", path, err)
 				continue
 			}
 			defer file.Close()
@@ -180,8 +162,8 @@ func (form *Form) Submit() (string, error) {
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		LogError.Println("pocketbase.Submit.getResponse.error:", err)
-		LogError.Println("pocketbase.Submit.getResponse.body:", response.Body)
+		log.Println("pocketbase.Submit.getResponse.error:", err)
+		log.Println("pocketbase.Submit.getResponse.body:", response.Body)
 		return "", err
 	}
 	responseBody, _ := io.ReadAll(response.Body)
@@ -190,7 +172,7 @@ func (form *Form) Submit() (string, error) {
 	}
 	json.Unmarshal(responseBody, &resp)
 	if response.StatusCode != 200 && response.StatusCode != 204 {
-		LogError.Println("pocketbase.Submit.status-resp:", response.StatusCode, resp)
+		log.Println("pocketbase.Submit.status-resp:", response.StatusCode, resp)
 		return "", fmt.Errorf("%v, %v", response.StatusCode, resp)
 	}
 	return resp.Id, nil
@@ -229,7 +211,7 @@ func (pb *PocketBase) getToken() (string, error) {
 func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, page ...uint) ([]*Record, error) {
 	token, err := pb.getToken()
 	if err != nil {
-		LogError.Println("pocketbase.Filter.token.error:", err)
+		log.Println("pocketbase.Filter.token.error:", err)
 		return nil, fmt.Errorf("pb.Filter.token: %v", err.Error())
 	}
 	headers := map[string]string{
@@ -260,14 +242,14 @@ func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, pag
 		Headers(headers), nil,
 	)
 	if err != nil {
-		LogError.Println("pocketbase.Filter.getResponse.error:", err)
+		log.Println("pocketbase.Filter.getResponse.error:", err)
 		return nil, err
 	}
 	if status == 204 {
 		return []*Record{}, nil
 	}
 	if status != 200 {
-		LogError.Println("pocketbase.Filter.getResponse:", status, respI)
+		log.Println("pocketbase.Filter.getResponse:", status, respI)
 		return nil, fmt.Errorf("%v, %v", status, respI)
 	}
 
@@ -286,7 +268,7 @@ func (pb *PocketBase) Filter(collectionNameOrId string, data map[string]any, pag
 func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 	token, err := pb.getToken()
 	if err != nil {
-		LogError.Println("pocketbase.Filter.token.error:", err)
+		log.Println("pocketbase.Filter.token.error:", err)
 		return fmt.Errorf("pb.Delete.token: %v", err.Error())
 	}
 	headers := Headers{
@@ -300,11 +282,11 @@ func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 		headers, nil,
 	)
 	if err != nil {
-		LogError.Println("pocketbase.Filter.getResponse.error:", err)
+		log.Println("pocketbase.Filter.getResponse.error:", err)
 		return err
 	}
 	if status != 200 && status != 204 {
-		LogError.Println("pocketbase.Filter.getResponse:", status, string(body))
+		log.Println("pocketbase.Filter.getResponse:", status, string(body))
 		return fmt.Errorf("%v, %v", status, string(body))
 	}
 	return nil
@@ -314,7 +296,7 @@ func (pb *PocketBase) Delete(collectionNameOrId, id string) error {
 func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName string) ([]byte, error) {
 	token, err := pb.getToken()
 	if err != nil {
-		LogError.Println("pocketbase.GetFileAsSliceByte.token.error:", err)
+		log.Println("pocketbase.GetFileAsSliceByte.token.error:", err)
 		return nil, fmt.Errorf("pb.GetFileAsSliceByte.token: %v", err.Error())
 	}
 	curl := fmt.Sprintf("http://%v/api/files/%v/%v/%v", pb.address, collentionNameOrId, recordId, fileName)
@@ -323,7 +305,7 @@ func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName 
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		LogError.Println("pocketbase.GetFileAsSliceByte.response.error:", err)
+		log.Println("pocketbase.GetFileAsSliceByte.response.error:", err)
 		return nil, err
 	}
 	body, _ := io.ReadAll(response.Body)
@@ -331,7 +313,7 @@ func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName 
 		return []byte{}, nil
 	}
 	if response.StatusCode != 200 {
-		LogError.Printf("pocketbase.GetFileAsSliceByte.response: status: %v, body: %v\n", response.StatusCode, fmt.Errorf("%v", body))
+		log.Printf("pocketbase.GetFileAsSliceByte.response: status: %v, body: %v\n", response.StatusCode, fmt.Errorf("%v", body))
 		return nil, fmt.Errorf("%v", body)
 	}
 	return body, nil
@@ -340,7 +322,7 @@ func (pb *PocketBase) GetFileAsSliceByte(collentionNameOrId, recordId, fileName 
 func (pb *PocketBase) doCollection(method, curl string, data map[string]any) error {
 	token, err := pb.getToken()
 	if err != nil {
-		LogError.Println("pocketbase.doCollection.token:", err)
+		log.Println("pocketbase.doCollection.token:", err)
 		return fmt.Errorf("pocketbase.doCollection.token: %v", err)
 	}
 	headers := Headers{
@@ -354,18 +336,17 @@ func (pb *PocketBase) doCollection(method, curl string, data map[string]any) err
 		headers, data,
 	)
 	if err != nil {
-		LogError.Println("pocketbase.doCollection.getResponse.error:", err)
+		log.Println("pocketbase.doCollection.getResponse.error:", err)
 		return fmt.Errorf("getResponse.error: %v", err)
 	}
 	if status != 200 && status != 204 {
-		LogError.Println("pocketbase.doCollection.getResponse:", status, string(body))
+		log.Println("pocketbase.doCollection.getResponse:", status, string(body))
 		return fmt.Errorf("getResponse: %v, %v", status, string(body))
 	}
 	return nil
 }
 
 func (pb *PocketBase) CreateCollection(data map[string]any) error {
-	fmt.Println("create", pb)
 	if !pb.updateCollections {
 		return nil
 	}
@@ -373,9 +354,10 @@ func (pb *PocketBase) CreateCollection(data map[string]any) error {
 }
 
 func (pb *PocketBase) UpdateCollection(data map[string]any) error {
-	fmt.Println("update", pb)
 	if !pb.updateCollections {
 		return nil
 	}
+	log.Println("UpdateSchema is not avaiable")
+	return nil
 	return pb.doCollection("PATCH", fmt.Sprintf(`%v/api/collections/%v`, pb.address, data["name"]), data)
 }

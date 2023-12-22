@@ -1,4 +1,4 @@
-package demo
+package main
 
 import (
 	"fmt"
@@ -8,6 +8,8 @@ import (
 	db "github.com/PoulIgorson/sub_engine_fiber/database"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 )
+
+var _ Model = &Car{}
 
 type Car struct {
 	ID       string `json:"id"`
@@ -43,7 +45,10 @@ func createModels(db_ DB, count int) {
 	colors := []string{"red", "green", "blue", "white", "black", "pink"}
 	cities := []string{"Moscow", "SP", "Vladimir", "Paris", "Rostov"}
 
-	carBct, _ := db_.Table("car", &Car{})
+	carBct, err := db_.Table("car", &Car{})
+	if err != nil {
+		panic("demo.createModels: " + err.Error())
+	}
 	for i := 0; i < count; i++ {
 		car := &Car{
 			ModelCar: models[rand.Int()%len(models)],
@@ -71,20 +76,15 @@ func showCars(cars []Model) {
 	}
 }
 
-func Run() {
+func main() {
 	fmt.Println("opening database")
 	db_, err := db.OpenPocketBase("http://localhost:8090", "backend@mail.com", "backendbackend", true, true)
-	//db_, err := db.OpenPocketBaseLocal("backend@mail.com", "backendbackend", true)
+	//db_, err := db.OpenPocketBaseLocal()
 	//db_, err := db.OpenBbolt("sub_engine_fiber_db.db")
 	if err != nil {
 		panic("db: " + err.Error())
 	}
 	defer db_.Close()
-
-	_, err = db_.Table("car", &Car{})
-	for err != nil {
-		_, err = db_.Table("car", &Car{})
-	}
 
 	fmt.Println("getting table")
 	table, err := db_.Table("car", &Car{})
@@ -134,6 +134,9 @@ func Run() {
 	fmt.Println("deleting all models in table")
 	if err := table.DeleteAll(); err != nil {
 		panic("table.DeleteAll: " + err.Error())
+	}
+	if err := db_.Close(); err != nil {
+		panic(err)
 	}
 
 	fmt.Println("exit")

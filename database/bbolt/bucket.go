@@ -3,15 +3,18 @@ package bbolt
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 
+	bolt "go.etcd.io/bbolt"
+
+	. "github.com/PoulIgorson/sub_engine_fiber/database/define"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
-	. "github.com/PoulIgorson/sub_engine_fiber/log"
-
-	bolt "go.etcd.io/bbolt"
 )
+
+var _ Table = &Bucket{}
 
 const _DELETE = "DELETE"
 
@@ -114,7 +117,7 @@ func (bucket *Bucket) set(keyI any, value string) error {
 		return bucket.Put([]byte(fmt.Sprint(key)), []byte(value))
 	})
 	if err != nil {
-		LogError.Printf("bbolt: Bucket.Set: Error of saving bucket `%v`: %v\n", bucket.Name(), err.Error())
+		log.Printf("bbolt: Bucket.Set: Error of saving bucket `%v`: %v\n", bucket.Name(), err.Error())
 	}
 	return nil
 }
@@ -152,7 +155,7 @@ func (bucket *Bucket) Save(model Model) error {
 	}
 	idUint, err := checkId(model.Id())
 	if err != nil {
-		if GetNameBucket(model) != "user" {
+		if GetNameModel(model) != "user" {
 			return err
 		}
 		field_id.Set(reflect.ValueOf(uint(0)))

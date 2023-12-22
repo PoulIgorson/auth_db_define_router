@@ -2,13 +2,15 @@ package pocketbase
 
 import (
 	"encoding/json"
+	"log"
 	"reflect"
 
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
-	. "github.com/PoulIgorson/sub_engine_fiber/log"
 )
+
+var _ Table = &Collection{}
 
 type Collection struct {
 	db   *DataBase
@@ -81,7 +83,7 @@ func (collection *Collection) Delete(idI any) error {
 // Pocketbase does not support DeleteAll
 // All models will be deletting of one
 func (collection *Collection) DeleteAll() error {
-	LogInfo.Println("pocketbase does not support DeleteAll\nAll models will be deletting of one")
+	log.Println("pocketbase does not support DeleteAll\nAll models will be deletting of one")
 	for _, model := range collection.Objects.All() {
 		model.Delete(collection.db)
 	}

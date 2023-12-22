@@ -4,9 +4,12 @@ import (
 	"reflect"
 	"sync"
 
+	. "github.com/PoulIgorson/sub_engine_fiber/database/define"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
 	. "github.com/PoulIgorson/sub_engine_fiber/define"
 )
+
+var _ ManagerI = &Manager{}
 
 type modelMap struct {
 	sync.Map
@@ -284,7 +287,8 @@ func (manager *Manager) processCheck(value reflect.Value) bool {
 			return false
 		}
 		manager.CheckPointers(submodel)
-		table := manager.table.DB().TableOfModel(submodel)
+		name := GetNameModel(submodel)
+		table := manager.table.DB().TableFromCache(name)
 		if table != nil {
 			submodel = table.Manager().Get(submodel.Id())
 			if submodel != nil {

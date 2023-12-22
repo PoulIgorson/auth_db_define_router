@@ -1,17 +1,17 @@
 package pocketbase
 
 import (
-	"net/url"
-	"reflect"
+	"log"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/PoulIgorson/sub_engine_fiber/database/base"
+	. "github.com/PoulIgorson/sub_engine_fiber/database/define"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/errors"
 	. "github.com/PoulIgorson/sub_engine_fiber/database/interfaces"
-	. "github.com/PoulIgorson/sub_engine_fiber/log"
 )
+
+var _ DB = &DataBase{}
 
 type collectionMap struct {
 	sync.Map
@@ -49,9 +49,10 @@ func Open(address, identity, password string, isAdmin bool, updateCollections ..
 }
 
 func OpenWith(pb *PocketBase) *DataBase {
-	return &DataBase{
+	db := &DataBase{
 		pb: pb,
 	}
+	return db
 }
 func (db *DataBase) DB() *PocketBase {
 	return db.pb
@@ -65,113 +66,15 @@ func (db *DataBase) TableFromCache(name string) Table {
 	return db.collections.Load(name)
 }
 
-func (db *DataBase) TableOfModel(model Model) Table {
-	if model.Id() == nil {
-		return nil
-	}
-	if _, ok := model.Id().(string); !ok {
-		return nil
-	}
-	var table Table
-	db.collections.Range(func(_ string, collection *Collection) (continue_ bool) {
-		_, err := collection.Get(model.Id())
-		if err == nil {
-			table = collection
-			return false
-		}
-		return true
-	})
-	return table
-}
-
-func getType(modelV reflect.Value) string {
-	switch modelV.Kind() {
-	case reflect.Bool:
-		return "bool"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return "number"
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return "number"
-	case reflect.Float32, reflect.Float64:
-		return "number"
-	case reflect.String:
-		return "text"
-	case reflect.Pointer:
-		return getType(modelV.Elem())
-	}
-	return ""
-}
-
-func getPBField(fieldT reflect.StructField, modelV reflect.Value) map[string]any {
-	if fieldT.Name == "ID" {
-		return nil
-	}
-	data := map[string]any{
-		"name": fieldT.Tag.Get("json"),
-	}
-	if fieldT.Tag.Get("typePB") != "" {
-		data["type"] = fieldT.Tag.Get("typePB")
-		return data
-	}
-	typ := getType(modelV)
-	if typ == "nil" {
-		return nil
-	}
-	if typ != "" {
-		data["type"] = typ
-	} else {
-		valueI := modelV.Interface()
-		if _, ok := valueI.(time.Time); ok {
-			data["type"] = "date"
-		} else if _, ok := valueI.(*time.Time); ok {
-			data["type"] = "date"
-		} else if modelV.Type().ConvertibleTo(reflect.TypeOf(PBTime{})) {
-			data["type"] = "date"
-		} else if modelV.Type().ConvertibleTo(reflect.TypeOf(&PBTime{})) {
-			data["type"] = "date"
-		} else if _, ok := valueI.(url.URL); ok {
-			data["type"] = "url"
-		} else if _, ok := valueI.(*url.URL); ok {
-			data["type"] = "url"
-		} else {
-			data["type"] = "json"
-		}
-	}
-	return data
-}
-
 func (db *DataBase) CreateCollection(name string, model Model) error {
-	if model == nil {
-		return NewErrorf("model is nil")
+	data, err := CreateDataCollection(name, model)
+	if err != nil {
+		return err
 	}
-	if _, ok := model.Id().(string); !ok && name != "user" {
-		return NewErrorf("pb: id must be string")
-	}
-	data := map[string]any{
-		"type": "base",
-		"name": name,
-	}
-	schema := []map[string]any{}
-
-	modelT := reflect.TypeOf(model)
-	if modelT.Kind() != reflect.Pointer {
-		return NewErrorf("pb: invalid type: expected %v, getted %v", reflect.Pointer, modelT.Kind())
-	}
-	modelT = modelT.Elem()
-	modelV := reflect.ValueOf(model).Elem()
-	for i := 0; i < modelT.NumField(); i++ {
-		fieldT := modelT.Field(i)
-		if !fieldT.IsExported() || fieldT.Tag.Get("json") == "-" || fieldT.Tag.Get("json") == "" {
-			continue
-		}
-
-		if field := getPBField(fieldT, modelV.Field(i)); field != nil {
-			schema = append(schema, field)
-		}
-	}
-	data["schema"] = schema
 
 	if db.ExistsTable(name) {
+		log.Println("UpdateSchema is not available")
+		return nil
 		return ToError(db.pb.UpdateCollection(data))
 	}
 
@@ -209,7 +112,7 @@ func (db *DataBase) Table(name string, model Model) (Table, error) {
 func (db *DataBase) ExistsTable(name string) bool {
 	_, err := db.pb.Filter(name, map[string]any{})
 	if err != nil && strings.Contains(err.Error(), "refused") {
-		LogError.Panicln(err)
+		panic(err)
 	}
 	return err == nil
 }

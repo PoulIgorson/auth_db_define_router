@@ -12,13 +12,13 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"log"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
-	. "github.com/PoulIgorson/sub_engine_fiber/log"
 	"golang.org/x/exp/constraints"
 )
 
@@ -89,15 +89,6 @@ func GetToday() string {
 		month = "0" + month
 	}
 	return fmt.Sprintf("%v-%v-%v", day, month, ctime.Year())
-}
-
-// ErrorToStr convert []error to string.
-func ErrorsToStr(errs []error) string {
-	errors := ""
-	for _, err := range errs {
-		errors += err.Error() + ", "
-	}
-	return errors[:len(errors)-2]
 }
 
 // Contains returns
@@ -251,7 +242,7 @@ func GetImagesFromRequestBody(body []byte, key ...string) ([]image.Image, []stri
 		format := imgData[strings.Index(imgData, ":")+1 : strings.Index(imgData, ";")]
 		img, err := GetDecodeFunc(format)(res)
 		if err != nil {
-			LogError.Println("GetImagesFromRequestBody: decode:", err.Error())
+			log.Println("GetImagesFromRequestBody: decode:", err.Error())
 			continue
 		}
 		images = append(images, img)
